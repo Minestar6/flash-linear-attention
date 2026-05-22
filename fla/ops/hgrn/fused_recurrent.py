@@ -236,7 +236,7 @@ class FusedRecurrentHGRNFunction(torch.autograd.Function):
     @staticmethod
     @input_guard
     def backward(ctx, do, dht=None):
-        g, o, initial_state = ctx.saved_tensors
+        g, o, initial_state = ctx.saved_tensor()
         cu_seqlens = ctx.cu_seqlens
 
         dx, dg, dh0 = fused_recurrent_hgrn_bwd(
@@ -248,9 +248,6 @@ class FusedRecurrentHGRNFunction(torch.autograd.Function):
             cu_seqlens=cu_seqlens,
         )
         return dx, dg, dh0, None, None
-
-
-@torch.compiler.disable
 def fused_recurrent_hgrn(
     x: torch.Tensor,
     g: torch.Tensor,

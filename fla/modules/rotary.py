@@ -250,9 +250,9 @@ class RotaryEmbeddingFunction(torch.autograd.Function):
     def backward(ctx, do):
         seqlen_offsets = ctx.seqlen_offsets
         if seqlen_offsets is None:
-            cos, sin, cu_seqlens, seqlen_offsets = ctx.saved_tensors
+            cos, sin, cu_seqlens, seqlen_offsets = ctx.saved_tensor()
         else:
-            cos, sin, cu_seqlens = ctx.saved_tensors
+            cos, sin, cu_seqlens = ctx.saved_tensor()
         # TD [2023-09-02]: For some reason Triton (2.0.0.post1) errors with
         # "[CUDA]: invalid device context", and cloning makes it work. Idk why. Triton 2.1.0 works.
         if not ctx.interleaved and not ctx.inplace:
@@ -327,15 +327,9 @@ class RotaryEmbedding(nn.Module):
     Reference: https://github.com/sunyt32/torchscale/blob/main/torchscale/component/xpos_relative_position.py
     """
 
-    def __init__(
-        self,
-        dim: int,
-        base: float = 10000.0,
-        scale_base: float | None = None,
-        interleaved: bool = False,
-        pos_idx_in_fp32: bool = True,
-        device: torch.device | None = None,
-    ):
+    def __init__(self, dim: int, base: float=10000.0, scale_base: (float |
+        None)=None, interleaved: bool=False, pos_idx_in_fp32: bool=True,
+        device=None):
         """
         interleaved:
             If True, rotate pairs of even and odd dimensions (GPT-J style) instead of 1st half and 2nd half (GPT-NeoX style).
@@ -357,9 +351,8 @@ class RotaryEmbedding(nn.Module):
         self.interleaved = interleaved
         self.pos_idx_in_fp32 = pos_idx_in_fp32
         self.device = device
-
-        # Generate and save the inverse frequency buffer (non trainable)
-        self.register_buffer("inv_freq", torch.empty(-(dim // -2), dtype=torch.float32, device=device), persistent=False)
+        self.register_buffer('inv_freq', torch.empty(-(dim // -2), dtype=
+            torch.float32, device=device if device is not None else 'cpu'), persistent=False)
 
         scale = None
         if scale_base is not None:
@@ -400,16 +393,9 @@ class RotaryEmbedding(nn.Module):
         return (torch.arange(0, self.dim, 2, device=device, dtype=torch.float32) + 0.4 * self.dim) / (1.4 * self.dim)
 
     def _update_cos_sin_cache(self, seqlen, device=None, dtype=None):
-        # Reset the tables if the sequence length has changed,
-        # if we're on a new device (possibly due to tracing for instance),
-        # or if we're switching from inference mode to training
-        if (
-            seqlen > self._seq_len_cached
-            or self._cos_cached is None
-            or self._cos_cached.device != device
-            or self._cos_cached.dtype != dtype
-            or (self.training and self._cos_cached.is_inference())
-        ):
+        if (seqlen > self._seq_len_cached or self._cos_cached is None or 
+            self._cos_cached.device != device or self._cos_cached.dtype !=
+            dtype or self.training and self._cos_cached.stop_gradient):
             self._seq_len_cached = seqlen
             # We want fp32 here, not self.inv_freq.dtype, since the model could be loaded in bf16
             # And the output of arange can be quite large, so bf16 would lose a lot of precision.
@@ -423,10 +409,10 @@ class RotaryEmbedding(nn.Module):
                 if self.inv_freq.dtype != torch.float32:
                     inv_freq = self._compute_inv_freq(device=device)
                 else:
-                    inv_freq = self.inv_freq
+                    inv_freq = self.inv_freq.to(device)
             else:
                 t = torch.arange(seqlen, device=device, dtype=self.inv_freq.dtype)
-                inv_freq = self.inv_freq
+                inv_freq = self.inv_freq.to(device)
             # Don't do einsum, it converts fp32 to fp16 under AMP
             # freqs = torch.einsum("i,j->ij", t, self.inv_freq)
             freqs = torch.outer(t, inv_freq)

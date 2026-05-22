@@ -947,7 +947,7 @@ class ChunkABCFunction(torch.autograd.Function):
     @staticmethod
     @input_guard
     def backward(ctx, dov, dht=None):
-        q, k, v, s, z, ok, p, hk, hv, Av = ctx.saved_tensors
+        q, k, v, s, z, ok, p, hk, hv, Av = ctx.saved_tensor()
         B, H, T, K, V, M = *q.shape, v.shape[-1], s.shape[-1]
         BT, BC = ctx.BT, 16
         BK = min(64, triton.next_power_of_2(K))
@@ -1071,9 +1071,6 @@ class ChunkABCFunction(torch.autograd.Function):
         ds -= bwd_post(s, z, ok * dok + p * dp, B, H, T, M, BT, BC, BM, NT, NC, NM)
         ds = ds.to(s.dtype)
         return dq, dk, dv, ds, None, None
-
-
-@torch.compiler.disable
 def chunk_abc(
     q: torch.Tensor,
     k: torch.Tensor,

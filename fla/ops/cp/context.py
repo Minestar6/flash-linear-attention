@@ -1,21 +1,20 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
 
 import torch
-import torch.distributed as dist
+try:
+    import torch.distributed as dist
+except (ImportError, AttributeError):
+    dist = None
 
 from fla.utils import tensor_cache
-
-if TYPE_CHECKING:
-    from torch.distributed import ProcessGroup
 
 
 @dataclass
 class FLACPContext:
     """FLA Context Parallel Context - Operator-level context management."""
-    group: ProcessGroup | None = None
+    group = None
     cu_seqlens: torch.Tensor | None = None
     cu_seqlens_cpu: torch.Tensor | None = None
     is_last_rank: bool | None = None
@@ -51,14 +50,10 @@ class FLACPContext:
 
 
 @tensor_cache
-def get_cp_cu_seqlens(
-    cu_seqlens: torch.LongTensor,
-    cu_seqlens_cpu: torch.LongTensor | None = None,
-    world_size: int | None = None,
-    rank: int | None = None,
-    group: dist.ProcessGroup | None = None,
-    conv1d_kernel_size: int | None = None
-) -> FLACPContext:
+def get_cp_cu_seqlens(cu_seqlens: torch.LongTensor, cu_seqlens_cpu: (torch.
+    LongTensor | None)=None, world_size: (int | None)=None, rank: (int |
+    None)=None, group=None,
+    conv1d_kernel_size: (int | None)=None) ->FLACPContext:
     # 1. Initialize environment info
     if world_size is None:
         assert group is not None
@@ -145,12 +140,9 @@ def get_cp_cu_seqlens(
     )
 
 
-def build_cp_context(
-    cu_seqlens: torch.Tensor,
-    group: ProcessGroup,
-    conv1d_kernel_size: int | None = None,
-    cu_seqlens_cpu: torch.Tensor | None = None,
-) -> FLACPContext:
+def build_cp_context(cu_seqlens: torch.Tensor, group, conv1d_kernel_size:
+    (int | None)=None, cu_seqlens_cpu: (torch.Tensor | None)=None
+    ) ->FLACPContext:
     """Build a CP context for the given cu_seqlens and process group.
 
     Args:

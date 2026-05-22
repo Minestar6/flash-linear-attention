@@ -1,10 +1,9 @@
+import paddleformers
 
 import warnings
 
-from transformers.configuration_utils import PretrainedConfig
 
-
-class RWKV7Config(PretrainedConfig):
+class RWKV7Config(paddleformers.transformers.PretrainedConfig):
 
     model_type = 'rwkv7'
     keys_to_ignore_at_inference = ['past_key_values']

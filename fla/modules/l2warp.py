@@ -1,3 +1,4 @@
+import paddle
 
 import torch
 
@@ -18,7 +19,7 @@ class L2Wrap(torch.autograd.Function):
             logits (torch.Tensor): Shape[B, T, V] The logits tensor.
             l2_penalty_factor (float): The factor for L2 penalty.
         """
-        maxx, ids = torch.max(logits, dim=-1, keepdim=True)
+        maxx, ids = paddle.compat.max(logits, dim=-1, keepdim=True)
         ctx.logits_shape = logits.shape
         factor = l2_penalty_factor / (logits.shape[0] * logits.shape[1])
         maxx = maxx * factor
@@ -27,7 +28,7 @@ class L2Wrap(torch.autograd.Function):
 
     @staticmethod
     def backward(ctx, grad_output):
-        maxx, ids = ctx.saved_tensors
+        maxx, ids = ctx.saved_tensor()
         glogits = torch.zeros(ctx.logits_shape, device=grad_output.device,
                               dtype=grad_output.dtype)
         glogits.scatter_(-1, ids, maxx)

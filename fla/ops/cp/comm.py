@@ -1,20 +1,16 @@
 from __future__ import annotations
-
-from typing import TYPE_CHECKING
+import paddle
 
 import torch
-import torch.distributed as dist
+try:
+    import torch.distributed as dist
+except (ImportError, AttributeError):
+    dist = None
 
-if TYPE_CHECKING:
-    from torch.distributed import ProcessGroup
 
-
-def all_gather_into_tensor(
-    inp: torch.Tensor,
-    out: torch.Tensor | None = None,
-    group: ProcessGroup | None = None,
-    async_op: bool = False
-) -> tuple[torch.Tensor, dist.Work | None]:
+def all_gather_into_tensor(inp: torch.Tensor, out: (torch.Tensor | None)=
+    None, group=None, async_op: bool=False) ->tuple[
+    torch.Tensor, torch.distributed.Work | None]:
     """
     All-gather a tensor across ranks.
 
@@ -30,15 +26,13 @@ def all_gather_into_tensor(
     world_size = dist.get_world_size(group=group)
     if out is None:
         out = torch.empty(world_size, *inp.shape, device=inp.device, dtype=inp.dtype)
-    handle = dist.all_gather_into_tensor(out, inp, group=group, async_op=async_op)
+    handle = paddle.distributed.stream.all_gather(tensor_or_tensor_list=out,
+        tensor=inp, group=group, sync_op=not async_op)
     return out, handle
 
 
-def all_reduce_sum(
-    inp: torch.Tensor,
-    group: ProcessGroup | None = None,
-    async_op: bool = False
-) -> tuple[torch.Tensor, dist.Work | None]:
+def all_reduce_sum(inp: torch.Tensor, group=None,
+    async_op: bool=False) ->tuple[torch.Tensor, torch.distributed.Work | None]:
     """
     All-reduce sum a tensor across ranks.
 
@@ -50,15 +44,13 @@ def all_reduce_sum(
     Returns:
         Tuple of (reduced tensor, handle if async_op else None)
     """
-    handle = dist.all_reduce(inp, op=dist.ReduceOp.SUM, group=group, async_op=async_op)
+    handle = paddle.distributed.all_reduce(tensor=inp, op=dist.ReduceOp.SUM,
+        group=group, sync_op=not async_op)
     return inp, handle
 
 
-def send_recv_fwd(
-    send_tensor: torch.Tensor,
-    group: ProcessGroup,
-    recv_from_prev: bool = True
-) -> torch.Tensor:
+def send_recv_fwd(send_tensor: torch.Tensor, group, recv_from_prev: bool=True
+    ) ->torch.Tensor:
     """
     Forward pass communication: send tensor to next rank, receive from previous rank.
 
@@ -92,11 +84,8 @@ def send_recv_fwd(
             return gathered[rank + 1].clone()
 
 
-def send_recv_bwd(
-    send_tensor: torch.Tensor,
-    group: ProcessGroup,
-    recv_from_next: bool = True
-) -> torch.Tensor:
+def send_recv_bwd(send_tensor: torch.Tensor, group, recv_from_next: bool=True
+    ) ->torch.Tensor:
     """
     Backward pass communication: send gradient to previous rank, receive from next rank.
 
@@ -130,9 +119,7 @@ def send_recv_bwd(
             return gathered[rank - 1].clone()
 
 
-# ============ Convenience aliases for conv1d CP ============
-
-def conv_cp_send_recv_fwd(tails: torch.Tensor, group: ProcessGroup) -> torch.Tensor:
+def conv_cp_send_recv_fwd(tails: torch.Tensor, group) ->torch.Tensor:
     """
     Conv1d CP forward: each rank sends its tails, receives previous rank's tails as heads.
 
@@ -146,7 +133,8 @@ def conv_cp_send_recv_fwd(tails: torch.Tensor, group: ProcessGroup) -> torch.Ten
     return send_recv_fwd(tails, group, recv_from_prev=True)
 
 
-def conv_cp_send_recv_bwd(d_initial_state: torch.Tensor, group: ProcessGroup) -> torch.Tensor:
+def conv_cp_send_recv_bwd(d_initial_state: torch.Tensor, group
+    ) ->torch.Tensor:
     """
     Conv1d CP backward: each rank sends d_initial_state, receives from next rank.
 

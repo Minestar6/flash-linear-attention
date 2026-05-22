@@ -1,4 +1,8 @@
 from __future__ import annotations
+import logging
+from ...paddle_utils import *
+import paddleformers
+import paddle
 
 import math
 import warnings
@@ -6,10 +10,7 @@ from typing import TYPE_CHECKING, Optional
 
 import torch
 import torch.nn as nn
-from transformers.modeling_outputs import BaseModelOutputWithPast, CausalLMOutputWithPast
-from transformers.modeling_utils import PreTrainedModel
-from transformers.utils import logging
-from transformers.utils.deprecation import deprecate_kwarg
+from paddleformers.transformers.model_outputs import BaseModelOutputWithPast, CausalLMOutputWithPast
 
 from fla.layers.attn import Attention
 from fla.layers.hgrn import HGRNAttention
@@ -20,15 +21,14 @@ from fla.modules import GatedMLP as HGRNMLP
 from fla.modules.l2warp import l2_warp
 
 if TYPE_CHECKING:
-    from transformers.processing_utils import Unpack
+    from paddleformers.transformers.processing_utils import Unpack
 
 
 try:
     from transformers.modeling_layers import GradientCheckpointingLayer
 except ImportError:
     from fla.models.modeling_layers import GradientCheckpointingLayer
-
-logger = logging.get_logger(__name__)
+logger = logging.getLogger(name=__name__)
 
 
 class HGRNBlock(GradientCheckpointingLayer):
@@ -38,8 +38,8 @@ class HGRNBlock(GradientCheckpointingLayer):
 
         self.config = config
         self.layer_idx = layer_idx
-
-        self.attn_norm = (RMSNorm if config.fuse_norm else nn.RMSNorm)(config.hidden_size, eps=config.norm_eps)
+        self.attn_norm = RMSNorm(
+            config.hidden_size, eps=config.norm_eps)
         if config.attn is not None and layer_idx in config.attn['layers']:
             self.attn = Attention(
                 hidden_size=config.hidden_size,
@@ -62,7 +62,8 @@ class HGRNBlock(GradientCheckpointingLayer):
                 norm_eps=config.norm_eps,
                 layer_idx=layer_idx,
             )
-        self.mlp_norm = (RMSNorm if config.fuse_norm else nn.RMSNorm)(config.hidden_size, eps=config.norm_eps)
+        self.mlp_norm = RMSNorm(
+            config.hidden_size, eps=config.norm_eps)
         self.mlp = HGRNMLP(
             hidden_size=config.hidden_size,
             hidden_ratio=config.hidden_ratio,
@@ -106,7 +107,7 @@ class HGRNBlock(GradientCheckpointingLayer):
         return outputs
 
 
-class HGRNPreTrainedModel(PreTrainedModel):
+class HGRNPreTrainedModel(paddleformers.transformers.PretrainedModel):
 
     config_class = HGRNConfig
     base_model_prefix = 'model'
@@ -123,7 +124,7 @@ class HGRNPreTrainedModel(PreTrainedModel):
         prenorm_residual_strategy: str | None = None,
         num_residuals_per_layer: int = 2,
     ):
-        if isinstance(module, (nn.Linear, nn.Conv1d)):
+        if isinstance(module, (paddle.compat.nn.Linear, nn.Conv1d)):
             # Slightly different from the TF version which uses truncated_normal for initialization
             # cf https://github.com/pytorch/pytorch/pull/5617
             nn.init.normal_(module.weight, mean=0.0, std=self.config.initializer_range)
@@ -172,7 +173,8 @@ class HGRNModel(HGRNPreTrainedModel):
         if config.use_lower_bound:
             self.lower_bounds = nn.Parameter(torch.zeros(config.num_hidden_layers, config.hidden_size))
         self.layers = nn.ModuleList([HGRNBlock(config, layer_idx) for layer_idx in range(config.num_hidden_layers)])
-        self.norm = (RMSNorm if config.fuse_norm else nn.RMSNorm)(config.hidden_size, eps=config.norm_eps)
+        self.norm = RMSNorm(config
+            .hidden_size, eps=config.norm_eps)
 
         self.gradient_checkpointing = False
 
@@ -249,12 +251,10 @@ class HGRNModel(HGRNPreTrainedModel):
 
         if not return_dict:
             return tuple(i for i in [hidden_states, past_key_values, all_hidden_states, all_attns] if i is not None)
-        return BaseModelOutputWithPast(
-            last_hidden_state=hidden_states,
-            past_key_values=past_key_values,
-            hidden_states=all_hidden_states,
-            attentions=all_attns,
-        )
+        return (paddleformers.transformers.model_outputs.
+            BaseModelOutputWithPast(last_hidden_state=hidden_states,
+            past_key_values=past_key_values, hidden_states=
+            all_hidden_states, attentions=all_attns))
 
 
 class HGRNForCausalLM(HGRNPreTrainedModel, FLAGenerationMixin):
@@ -265,7 +265,8 @@ class HGRNForCausalLM(HGRNPreTrainedModel, FLAGenerationMixin):
         super().__init__(config)
         self.model = HGRNModel(config)
         self.vocab_size = config.vocab_size
-        self.lm_head = nn.Linear(config.hidden_size, config.vocab_size, bias=False)
+        self.lm_head = paddle.compat.nn.Linear(config.hidden_size, config.
+            vocab_size, bias=False)
         self.criterion = None
 
         # Initialize weights and apply final processing
@@ -303,8 +304,6 @@ class HGRNForCausalLM(HGRNPreTrainedModel, FLAGenerationMixin):
                 )
             else:
                 raise exception
-
-    @deprecate_kwarg("num_logits_to_keep", version="4.50", new_name="logits_to_keep")
     def forward(
         self,
         input_ids: torch.LongTensor = None,
@@ -349,7 +348,7 @@ class HGRNForCausalLM(HGRNPreTrainedModel, FLAGenerationMixin):
                 elif self.config.fuse_cross_entropy:
                     criterion = FusedCrossEntropyLoss(inplace_backward=True)
                 else:
-                    criterion = nn.CrossEntropyLoss()
+                    criterion = paddle.nn.CrossEntropyLoss()
             else:
                 criterion = self.criterion
             labels = labels.to(hidden_states.device)
@@ -357,17 +356,13 @@ class HGRNForCausalLM(HGRNPreTrainedModel, FLAGenerationMixin):
             if self.config.fuse_linear_cross_entropy:
                 loss = criterion(hidden_states, labels, self.lm_head.weight, self.lm_head.bias)
             else:
-                loss = criterion(logits.view(labels.numel(), -1), labels.view(-1))
+                loss = criterion(logits.view(labels.size, -1), labels.view(-1))
                 loss = l2_warp(loss, logits) if self.config.use_l2warp else loss
 
         if not return_dict:
             output = (logits,) + outputs[1:]
             return (loss,) + output if loss is not None else output
-
-        return CausalLMOutputWithPast(
-            loss=loss,
-            logits=logits,
-            past_key_values=outputs.past_key_values,
-            hidden_states=outputs.hidden_states,
-            attentions=outputs.attentions,
-        )
+        return paddleformers.transformers.model_outputs.CausalLMOutputWithPast(
+            loss=loss, logits=logits, past_key_values=outputs.
+            past_key_values, hidden_states=outputs.hidden_states,
+            attentions=outputs.attentions)

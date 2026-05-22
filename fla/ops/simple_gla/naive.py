@@ -1,3 +1,4 @@
+import paddle
 
 
 import torch
@@ -23,11 +24,10 @@ def naive_chunk_simple_gla(
     BT = chunk_size
     pad_len = (BT - (T % BT)) % BT
     if pad_len > 0:
-        # Pad all tensors
-        q = F.pad(q, (0, 0, 0, pad_len))
-        k = F.pad(k, (0, 0, 0, pad_len))
-        v = F.pad(v, (0, 0, 0, pad_len))
-        g = F.pad(g, (0, pad_len))
+        q = paddle.compat.nn.functional.pad(q, (0, 0, 0, pad_len))
+        k = paddle.compat.nn.functional.pad(k, (0, 0, 0, pad_len))
+        v = paddle.compat.nn.functional.pad(v, (0, 0, 0, pad_len))
+        g = paddle.compat.nn.functional.pad(g, (0, pad_len))
     decay = g
     B, H, T1, K = q.shape
     V = v.shape[-1]

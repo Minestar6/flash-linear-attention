@@ -1,10 +1,9 @@
+import paddleformers
 
 import warnings
 
-from transformers.configuration_utils import PretrainedConfig
 
-
-class MesaNetConfig(PretrainedConfig):
+class MesaNetConfig(paddleformers.transformers.PretrainedConfig):
     model_type = 'mesa_net'
     keys_to_ignore_at_inference = ['past_key_values']
 

@@ -428,7 +428,7 @@ class LayerNormFn(torch.autograd.Function):
     @input_guard
     @staticmethod
     def backward(ctx, dy):
-        x, weight, bias, mean, rstd, z = ctx.saved_tensors
+        x, weight, bias, mean, rstd, z = ctx.saved_tensor()
         dy = dy.reshape(-1, dy.shape[-1])
         if dy.stride(-1) != 1:
             dy = dy.contiguous()
@@ -461,15 +461,9 @@ def rmsnorm_fn(x, weight, bias, z=None, eps=1e-6, group_size=None, norm_before_g
 
 class LayerNormGated(nn.Module):
 
-    def __init__(
-        self,
-        hidden_size,
-        eps: float = 1e-5,
-        group_size: int | None = None,
-        norm_before_gate: bool = True,
-        device: torch.device | None = None,
-        dtype: torch.dtype | None = None,
-    ):
+    def __init__(self, hidden_size, eps: float=1e-05, group_size: (int |
+        None)=None, norm_before_gate: bool=True, device=None, dtype: (torch.
+        dtype | None)=None):
         """If group_size is not None, we do GroupNorm with each group having group_size elements.
         group_size=None is equivalent to group_size=hidden_size (i.e. there's only 1 group).
         """
@@ -496,15 +490,9 @@ class LayerNormGated(nn.Module):
 
 class RMSNormGated(nn.Module):
 
-    def __init__(
-        self,
-        hidden_size,
-        eps: float = 1e-5,
-        group_size: int | None = None,
-        norm_before_gate: bool = False,
-        device: torch.device | None = None,
-        dtype: torch.dtype | None = None,
-    ):
+    def __init__(self, hidden_size, eps: float=1e-05, group_size: (int |
+        None)=None, norm_before_gate: bool=False, device=None, dtype: (torch
+        .dtype | None)=None):
         """If group_size is not None, we do GroupNorm with each group having group_size elements.
         group_size=None is equivalent to group_size=hidden_size (i.e. there's only 1 group).
         """

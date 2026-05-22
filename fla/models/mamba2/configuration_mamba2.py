@@ -1,24 +1,8 @@
-# Copyright 2024 The HuggingFace Inc. team.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-
-import math
+import paddleformers
 import warnings
 
-from transformers.configuration_utils import PretrainedConfig
 
-
-class Mamba2Config(PretrainedConfig):
+class Mamba2Config(paddleformers.transformers.PretrainedConfig):
     """
     This is the configuration class to store the configuration of a [`Mamba2Model`]. It is used to instantiate a MAMBA2
     model according to the specified arguments, defining the model architecture. Instantiating a configuration with the
@@ -88,48 +72,29 @@ class Mamba2Config(PretrainedConfig):
 
     model_type = "mamba2"
 
-    def __init__(
-        self,
-        head_dim: int = 64,
-        vocab_size: int = 32000,
-        hidden_size: int = 2048,
-        state_size: int = 128,
-        num_hidden_layers: int = 48,
-        norm_eps: float = 1e-5,
-        pad_token_id: int = 0,
-        bos_token_id: int = 1,
-        eos_token_id: int = 2,
-        expand: int = 2,
-        conv_kernel: int = 4,
-        n_groups: int = 1,
-        use_bias: bool = False,
-        use_conv_bias: bool = True,
-        hidden_act: str = "silu",
-        initializer_range: float = 0.02,
-        residual_in_fp32: bool = True,
-        time_step_rank: str = "auto",
-        time_step_min: float = 0.001,
-        time_step_max: float = 0.1,
-        time_step_floor: float = 1e-4,
-        time_step_limit=(0.0, float("inf")),
-        rescale_prenorm_residual: bool = True,
-        use_cache: bool = True,
-        rms_norm: bool = True,
-        chunk_size: int = 256,
-        fuse_norm: bool = True,
-        fuse_cross_entropy: bool = True,
-        fuse_linear_cross_entropy: bool = False,
-        use_l2warp: bool = False,
-        tie_word_embeddings: bool = False,
-        **kwargs,
-    ):
+    def __init__(self, head_dim: int=64, vocab_size: int=32000, hidden_size:
+        int=2048, state_size: int=128, num_hidden_layers: int=48, norm_eps:
+        float=1e-05, pad_token_id: int=0, bos_token_id: int=1, eos_token_id:
+        int=2, expand: int=2, conv_kernel: int=4, n_groups: int=1, use_bias:
+        bool=False, use_conv_bias: bool=True, conv_init: (float | None)=
+        None, A_init_range: tuple[float, float]=(1, 16), D_has_hdim: bool=
+        False, hidden_act: str='silu', initializer_range: float=0.02,
+        residual_in_fp32: bool=True, dt_min: float=0.001, dt_max: float=0.1,
+        dt_init_floor: float=0.0001, dt_limit: tuple[float, float]=(0.0,
+        float('inf')), rescale_prenorm_residual: bool=True, use_cache: bool
+        =True, rmsnorm: bool=True, norm_before_gate: bool=False, chunk_size:
+        int=256, fuse_norm: bool=True, fuse_cross_entropy: bool=True,
+        fuse_linear_cross_entropy: bool=False, use_l2warp: bool=False,
+        tie_word_embeddings: bool=False, **kwargs):
         self.vocab_size = vocab_size
         self.hidden_size = hidden_size
         self.state_size = state_size
         self.num_hidden_layers = num_hidden_layers
         self.norm_eps = norm_eps
         self.conv_kernel = conv_kernel
+        self.conv_init = conv_init
         self.expand = expand
+        self.A_init_range = A_init_range
 
         self.bos_token_id = bos_token_id
         self.eos_token_id = eos_token_id
@@ -138,29 +103,35 @@ class Mamba2Config(PretrainedConfig):
         self.use_conv_bias = use_conv_bias
         self.hidden_act = hidden_act
         self.initializer_range = initializer_range
-        self.time_step_rank = (
-            math.ceil(self.hidden_size / 16)
-            if time_step_rank == "auto"
-            else time_step_rank
-        )
-        self.time_step_min = time_step_min
-        self.time_step_max = time_step_max
-        self.time_step_floor = time_step_floor
+        self.dt_min = dt_min
+        self.dt_max = dt_max
+        self.dt_init_floor = dt_init_floor
         self.rescale_prenorm_residual = rescale_prenorm_residual
         self.residual_in_fp32 = residual_in_fp32
         self.use_cache = use_cache
         self.n_groups = n_groups
         self.head_dim = head_dim
         self.num_heads = int(self.expand * self.hidden_size / self.head_dim)
-        self.rms_norm = rms_norm
+        self.rmsnorm = rmsnorm
+        self.D_has_hdim = D_has_hdim
+        self.norm_before_gate = norm_before_gate
         self.state_size = state_size
         self.chunk_size = chunk_size
-        self.time_step_limit = time_step_limit
+        self.dt_limit = dt_limit
         self.fuse_norm = fuse_norm
         self.fuse_cross_entropy = fuse_cross_entropy
         self.fuse_linear_cross_entropy = fuse_linear_cross_entropy
         self.use_l2warp = use_l2warp
         self.tie_word_embeddings = tie_word_embeddings
+        if len(A_init_range) != 2 or A_init_range[0] <= 0 or A_init_range[0
+            ] > A_init_range[1]:
+            raise ValueError(
+                '`A_init_range` must be a positive (min, max) pair.')
+        if dt_min <= 0 or dt_max < dt_min:
+            raise ValueError(
+                '`dt_min` and `dt_max` must satisfy 0 < dt_min <= dt_max.')
+        if dt_init_floor <= 0:
+            raise ValueError('`dt_init_floor` must be > 0.')
 
         if fuse_cross_entropy and fuse_linear_cross_entropy:
             raise ValueError(

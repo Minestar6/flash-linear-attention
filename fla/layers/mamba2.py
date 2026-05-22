@@ -2,13 +2,18 @@
 
 from __future__ import annotations
 
+import logging
+from ..paddle_utils import *
+import paddleformers
+import paddle
+import os
+
 import math
 import warnings
 from typing import TYPE_CHECKING
 
 import torch
 import torch.nn as nn
-from transformers.utils import logging
 
 from fla.layers.utils import get_layer_cache, update_layer_cache
 from fla.modules.activations import ACT2FN
@@ -29,8 +34,7 @@ with warnings.catch_warnings():
 
 if TYPE_CHECKING:
     from fla.models.utils import Cache
-
-logger = logging.get_logger(__name__)
+logger = logging.getLogger(name=__name__)
 
 
 def apply_mask_to_padding_states(hidden_states, attention_mask):
@@ -51,8 +55,8 @@ def pad_tensor_by_size(input_tensor: torch.Tensor, pad_size: int):
     Assumes that we only have tensors of either size 4 or 3
     """
     pad_shape = (0, 0, 0, 0, 0, pad_size, 0, 0) if len(input_tensor.shape) == 4 else (0, 0, 0, pad_size, 0, 0)
-
-    return torch.nn.functional.pad(input_tensor, pad_shape, mode="constant", value=0)
+    return paddle.compat.nn.functional.pad(input_tensor, pad_shape, mode=
+        'constant', value=0)
 
 
 def reshape_into_chunks(input_tensor, pad_size, chunk_size):
@@ -163,11 +167,8 @@ class Mamba2(nn.Module):
 
         # projection of the input hidden states
         projection_size = self.intermediate_size + self.conv_dim + self.num_heads
-        self.in_proj = nn.Linear(
-            self.hidden_size,
-            projection_size,
-            bias=use_bias,
-        )
+        self.in_proj = paddle.compat.nn.Linear(self.hidden_size,
+            projection_size, bias=use_bias)
         # selective projection used to make dt, B and C input dependant
 
         # time step projection (discretization)
@@ -194,8 +195,8 @@ class Mamba2(nn.Module):
         )
         self.D = nn.Parameter(torch.ones(self.num_heads))
         self.D._no_weight_decay = True
-
-        self.out_proj = nn.Linear(self.intermediate_size, self.hidden_size, bias=use_bias)
+        self.out_proj = paddle.compat.nn.Linear(self.intermediate_size,
+            self.hidden_size, bias=use_bias)
         self.use_bias = use_bias
 
         self.layer_idx = layer_idx
@@ -270,16 +271,9 @@ class Mamba2(nn.Module):
                 self.conv1d.bias,
                 self.activation,
             )
-
-            hidden_states, B, C = torch.split(
-                hidden_states_B_C,
-                [
-                    self.intermediate_size,
-                    groups_time_state_size,
-                    groups_time_state_size,
-                ],
-                dim=-1,
-            )
+            hidden_states, B, C = paddle.compat.split(hidden_states_B_C, [
+                self.intermediate_size, groups_time_state_size,
+                groups_time_state_size], dim=-1)
 
             # 3. SSM transformation
             A = -torch.exp(self.A_log.float())  # (nheads,)
@@ -353,10 +347,10 @@ class Mamba2(nn.Module):
                 new_conv_state = None
                 if use_cache:
                     hidden_states_B_C_transposed = hidden_states_B_C.transpose(1, 2)
-                    new_conv_state = nn.functional.pad(
-                        hidden_states_B_C_transposed,
-                        (self.conv_kernel_size - hidden_states_B_C_transposed.shape[-1], 0),
-                    )
+                    new_conv_state = paddle.compat.nn.functional.pad(
+                        hidden_states_B_C_transposed, (self.
+                        conv_kernel_size - hidden_states_B_C_transposed.
+                        shape[-1], 0))
 
                 if self.activation not in ["silu", "swish"]:
                     hidden_states_B_C = self.act(
@@ -381,11 +375,9 @@ class Mamba2(nn.Module):
                 hidden_states_B_C = (hidden_states_B_C * attention_mask[:, :, None]).to(hidden_states_B_C.dtype) \
                     if attention_mask is not None and attention_mask.shape[1] > 1 and attention_mask.shape[0] > 1 \
                     else hidden_states_B_C
-                hidden_states, B, C = torch.split(
-                    hidden_states_B_C,
-                    [self.intermediate_size, groups_time_state_size, groups_time_state_size],
-                    dim=-1,
-                )
+                hidden_states, B, C = paddle.compat.split(hidden_states_B_C,
+                    [self.intermediate_size, groups_time_state_size,
+                    groups_time_state_size], dim=-1)
 
                 # 3. SSM transformation
                 scan_output, ssm_state = mamba_chunk_scan_combined(
@@ -458,21 +450,27 @@ class Mamba2(nn.Module):
             new_conv_state = None
             if use_cache:
                 hidden_states_B_C_transposed = hidden_states_B_C.transpose(1, 2)
-                new_conv_state = nn.functional.pad(
-                    hidden_states_B_C_transposed, (self.conv_kernel_size - hidden_states_B_C_transposed.shape[-1], 0),
-                )
-
-            hidden_states_B_C = self.act(self.conv1d(hidden_states_B_C.transpose(1, 2))[..., :seq_len].transpose(1, 2))
+                new_conv_state = paddle.compat.nn.functional.pad(
+                    hidden_states_B_C_transposed, (self.conv_kernel_size -
+                    hidden_states_B_C_transposed.shape[-1], 0))
+            _bc_dtype = hidden_states_B_C.dtype
+            _hbc_t = hidden_states_B_C.float().transpose(1, 2)
+            hidden_states_B_C = self.act(
+                paddle.nn.functional.conv1d(
+                    _hbc_t,
+                    self.conv1d.weight.float(),
+                    self.conv1d.bias.float() if self.use_conv_bias else None,
+                    padding=self.conv_kernel_size - 1,
+                    groups=self.conv_dim,
+                )[..., :seq_len].transpose(1, 2).to(_bc_dtype))
 
         if last_state is None:
             hidden_states_B_C = (hidden_states_B_C * attention_mask[:, :, None]).to(hidden_states_B_C.dtype) \
                 if attention_mask is not None and attention_mask.shape[1] > 1 and attention_mask.shape[0] > 1 \
                 else hidden_states_B_C
-        hidden_states, B, C = torch.split(
-            hidden_states_B_C,
-            [self.intermediate_size, self.n_groups * self.ssm_state_size, self.n_groups * self.ssm_state_size],
-            dim=-1,
-        )
+        hidden_states, B, C = paddle.compat.split(hidden_states_B_C, [self.
+            intermediate_size, self.n_groups * self.ssm_state_size, self.
+            n_groups * self.ssm_state_size], dim=-1)
 
         # 3. SSM transformation
         A = -torch.exp(self.A_log.float())                            # [num_heads]
@@ -587,7 +585,8 @@ class Mamba2(nn.Module):
             # (middle term of factorization of off-diag blocks; A terms)
             previous_states = torch.zeros_like(states[:, :1])
             states = torch.cat([previous_states, states], dim=1)
-            decay_chunk = torch.exp(segment_sum(nn.functional.pad(A_cumsum[:, :, :, -1], (1, 0))))
+            decay_chunk = torch.exp(segment_sum(paddle.compat.nn.functional
+                .pad(A_cumsum[:, :, :, -1], (1, 0))))
             decay_chunk = decay_chunk.transpose(1, 3)
             new_states = (decay_chunk[..., None, None] * states[:, :, None, ...]).sum(dim=1)
             states, ssm_state = new_states[:, :-1], new_states[:, -1]

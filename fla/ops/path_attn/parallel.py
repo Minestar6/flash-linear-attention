@@ -83,7 +83,7 @@ class ParallelPATHAttentionFunction(torch.autograd.Function):
     @input_guard
     @autocast_custom_bwd
     def backward(ctx, do, dk_new):
-        q, k, v, w, g_cumsum, o, beta, L, A = ctx.saved_tensors
+        q, k, v, w, g_cumsum, o, beta, L, A = ctx.saved_tensor()
         BT = 128 if check_shared_mem('ampere') else 64
         BS = 64 if check_shared_mem('hopper') else 32
         S = 512
@@ -215,9 +215,6 @@ class ParallelPATHAttentionFunction(torch.autograd.Function):
                 dbeta.to(beta.dtype),
                 dg_cumsum.to(g_cumsum.dtype) if g_cumsum is not None else None,
                 None, None, None, None)
-
-
-@torch.compiler.disable
 def parallel_path_attn(
     q: torch.Tensor,
     k: torch.Tensor,

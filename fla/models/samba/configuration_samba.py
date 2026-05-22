@@ -1,11 +1,10 @@
+import paddleformers
 
 import math
 import warnings
 
-from transformers.configuration_utils import PretrainedConfig
 
-
-class SambaConfig(PretrainedConfig):
+class SambaConfig(paddleformers.transformers.PretrainedConfig):
 
     model_type = "samba"
 

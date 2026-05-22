@@ -1,3 +1,4 @@
+import paddle
 import math
 import warnings
 from dataclasses import dataclass
@@ -1542,7 +1543,8 @@ class ChunkLogLinearAttentionFunction(torch.autograd.Function):
         offsets = initial_state.offsets if initial_state is not None else None
 
         if cu_seqlens is None:
-            NT = ceil_div(T + (torch.max(offsets) if offsets is not None else 0), BT)
+            NT = ceil_div(T + (paddle.compat.max(offsets) if offsets is not
+                None else 0), BT)
             MAX_LEVEL = ceil_log(NT, 2) - 1
         else:
             NT = max(
@@ -1571,7 +1573,8 @@ class ChunkLogLinearAttentionFunction(torch.autograd.Function):
 
         if initial_state is not None:
             if cu_seqlens is not None:
-                cu_seqlens = cu_seqlens + F.pad(torch.cumsum(offsets % BT), (1, 0))
+                cu_seqlens = cu_seqlens + paddle.compat.nn.functional.pad(torch
+                    .cumsum(offsets % BT), (1, 0))
             else:
                 assert (offsets == offsets[0]).all()
                 T += offsets[0].item() % BT
@@ -1706,8 +1709,8 @@ class ChunkLogLinearAttentionFunction(torch.autograd.Function):
     def backward(ctx, do, dht):
         if triton.__version__ < "3.1.0":
             raise ValueError("Triton>=3.1.0 is required")
-
-        q, k, v, g, level_scales, initial_state, cu_seqlens = ctx.saved_tensors
+        q, k, v, g, level_scales, initial_state, cu_seqlens = ctx.saved_tensor(
+            )
         chunk_size = ctx.chunk_size
         llut = ctx.llut
         mask = masks(chunk_size, v.device)
@@ -1855,9 +1858,6 @@ class ChunkLogLinearAttentionFunction(torch.autograd.Function):
         dq = reduce(dq, "b t (g h) k -> b t g k", "sum", g=G, h=H // G)
         dk = reduce(dk, "b t (g h) k -> b t g k", "sum", g=G, h=H // G)
         return dq, dk, dv, dg, dl, None, None, None
-
-
-@torch.compiler.disable
 def chunk_log_linear_attn(
     q: torch.Tensor,
     k: torch.Tensor,

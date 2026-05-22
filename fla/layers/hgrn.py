@@ -4,6 +4,9 @@
 
 from __future__ import annotations
 
+import paddleformers
+import paddle
+
 from typing import TYPE_CHECKING
 
 import torch
@@ -16,7 +19,7 @@ from fla.modules.activations import swiglu
 from fla.ops.hgrn import chunk_hgrn, fused_recurrent_hgrn
 
 if TYPE_CHECKING:
-    from transformers.processing_utils import Unpack
+    from paddleformers.transformers.processing_utils import Unpack
 
     from fla.models.utils import Cache
 
@@ -49,10 +52,12 @@ class HGRNAttention(nn.Module):
         self.layer_idx = layer_idx
 
         assert mode in ['chunk', 'fused_recurrent'], f"Not supported mode `{mode}`."
-
-        self.i_proj = nn.Linear(hidden_size, self.input_dim, bias=False)
-        self.f_proj = nn.Linear(hidden_size, self.input_dim, bias=False)
-        self.g_proj = nn.Linear(hidden_size, self.input_dim, bias=False)
+        self.i_proj = paddle.compat.nn.Linear(hidden_size, self.input_dim,
+            bias=False)
+        self.f_proj = paddle.compat.nn.Linear(hidden_size, self.input_dim,
+            bias=False)
+        self.g_proj = paddle.compat.nn.Linear(hidden_size, self.input_dim,
+            bias=False)
 
         if use_short_conv:
             self.conv_size = conv_size
@@ -74,7 +79,8 @@ class HGRNAttention(nn.Module):
             elementwise_affine=elementwise_affine,
             eps=norm_eps,
         )
-        self.o_proj = nn.Linear(self.input_dim, hidden_size, bias=False)
+        self.o_proj = paddle.compat.nn.Linear(self.input_dim, hidden_size,
+            bias=False)
 
     def forward(
         self,
@@ -125,7 +131,8 @@ class HGRNAttention(nn.Module):
         f = F.logsigmoid(f)
         # the lower bound for the first layer is zero
         if lower_bound is not None and self.layer_idx > 0:
-            f = torch.logaddexp(lower_bound.log(), torch.log1p(-lower_bound) + f).to(f)
+            f = paddle.logaddexp(x=lower_bound.log(), y=torch.log1p(-
+                lower_bound) + f).to(f)
         i = swiglu(i, 1 - f.exp())
 
         # dealing with left-padding

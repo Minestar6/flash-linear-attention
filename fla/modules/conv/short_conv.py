@@ -1,3 +1,4 @@
+import os
 # Copyright (c) 2023-2025, Songlin Yang, Yu Zhang
 
 """Short convolution implementation for efficient causal convolutions."""
@@ -44,17 +45,9 @@ class ShortConvolution(nn.Conv1d):
         - Falls back to Triton backend if CUDA backend is unavailable
     """
 
-    def __init__(
-        self,
-        hidden_size: int,
-        kernel_size: int,
-        bias: bool = False,
-        activation: str | None = 'silu',
-        backend: str | None = 'triton',
-        device: torch.device | None = None,
-        dtype: torch.dtype | None = None,
-        **kwargs,
-    ):
+    def __init__(self, hidden_size: int, kernel_size: int, bias: bool=False,
+        activation: (str | None)='silu', backend: (str | None)='triton',
+        device=None, dtype: (torch.dtype | None)=None, **kwargs):
         super().__init__(
             in_channels=hidden_size,
             out_channels=hidden_size,

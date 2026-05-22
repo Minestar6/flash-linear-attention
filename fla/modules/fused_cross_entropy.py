@@ -1,3 +1,4 @@
+import paddle
 
 # Copyright (c) 2023, Tri Dao.
 
@@ -10,13 +11,11 @@ import triton.language as tl
 
 from fla.ops.utils.op import exp, log
 from fla.utils import input_guard
-
-# `all_gather_into_tensor` and `reduce_scatter_tensor` are new placeholders for
-# `_all_gather_base` and `_reduce_scatter_base`. They require the most recent
-# version of PyTorch. The following 2 lines are for backward compatibility with
-# older PyTorch.
-if "all_gather_into_tensor" not in dir(torch.distributed):
-    torch.distributed.all_gather_into_tensor = torch.distributed._all_gather_base
+try:
+    if 'all_gather_into_tensor' not in dir(torch.distributed):
+        paddle.distributed.stream.all_gather = torch.distributed._all_gather_base
+except Exception as e:
+    paddle.distributed.stream.all_gather = None
 
 
 @triton.heuristics({
@@ -204,10 +203,11 @@ def fused_cross_entropy_forward(
             losses = losses.sum(dim=0)
         if world_size > 1:
             lse_allgather = torch.empty(world_size, n_rows, dtype=lse.dtype, device=lse.device)
-            torch.distributed.all_gather_into_tensor(lse_allgather, lse, group=process_group)
-            handle_losses = torch.distributed.all_reduce(
-                losses, op=torch.distributed.ReduceOp.SUM, group=process_group, async_op=True,
-            )
+            paddle.distributed.stream.all_gather(tensor_or_tensor_list=
+                lse_allgather, tensor=lse, group=process_group)
+            handle_losses = paddle.distributed.all_reduce(tensor=losses, op
+                =torch.distributed.ReduceOp.SUM, group=process_group,
+                sync_op=not True)
             lse = torch.logsumexp(lse_allgather, dim=0)
             handle_losses.wait()
         # After the allreduce, if there's no label_smoothing, the total losses are - predicted_logit,
@@ -267,13 +267,14 @@ class CrossEntropyLossFunction(torch.autograd.Function):
     @input_guard
     def backward(ctx, grad_losses, grad_z_losses):
         del grad_z_losses  # z_losses are only for logging.
-
-        logits, lse, target = ctx.saved_tensors
+        logits, lse, target = ctx.saved_tensor()
         dlogits = logits if ctx.inplace_backward else torch.empty_like(logits)
         n_rows, n_cols = logits.shape
         BLOCK_SIZE = min(triton.next_power_of_2(n_cols), 4 * 1024)
         num_warps = 4 if BLOCK_SIZE < 2048 else (8 if BLOCK_SIZE < 8192 else 16)
-        def grid(META): return (n_rows, triton.cdiv(n_cols, META["BLOCK_SIZE"]))  # noqa
+
+        def grid(META):
+            return n_rows, triton.cdiv(n_cols, META['BLOCK_SIZE'])
         cross_entropy_bwd_kernel[grid](
             dlogits,  # data ptrs
             grad_losses,

@@ -1,11 +1,10 @@
 from __future__ import annotations
+import paddleformers
 
 import warnings
 
-from transformers.configuration_utils import PretrainedConfig
 
-
-class RetNetConfig(PretrainedConfig):
+class RetNetConfig(paddleformers.transformers.PretrainedConfig):
 
     model_type = 'retnet'
     keys_to_ignore_at_inference = ['past_key_values']

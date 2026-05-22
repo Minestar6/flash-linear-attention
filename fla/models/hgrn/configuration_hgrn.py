@@ -1,10 +1,9 @@
+import paddleformers
 
 import warnings
 
-from transformers.configuration_utils import PretrainedConfig
 
-
-class HGRNConfig(PretrainedConfig):
+class HGRNConfig(paddleformers.transformers.PretrainedConfig):
 
     model_type = 'hgrn'
     keys_to_ignore_at_inference = ['past_key_values']

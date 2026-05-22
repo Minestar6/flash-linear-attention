@@ -1,4 +1,8 @@
 from __future__ import annotations
+import logging
+from ...paddle_utils import *
+import paddleformers
+import paddle
 
 import math
 import warnings
@@ -6,10 +10,7 @@ from typing import TYPE_CHECKING, Optional
 
 import torch
 import torch.nn as nn
-from transformers.modeling_outputs import BaseModelOutputWithPast, CausalLMOutputWithPast
-from transformers.modeling_utils import PreTrainedModel
-from transformers.utils import logging
-from transformers.utils.deprecation import deprecate_kwarg
+from paddleformers.transformers.model_outputs import BaseModelOutputWithPast, CausalLMOutputWithPast
 
 from fla.layers.attn import Attention
 from fla.layers.kda import KimiDeltaAttention
@@ -20,15 +21,14 @@ from fla.modules import GatedMLP as KDAMLP
 from fla.modules.l2warp import l2_warp
 
 if TYPE_CHECKING:
-    from transformers.processing_utils import Unpack
+    from paddleformers.transformers.processing_utils import Unpack
 
 
 try:
     from transformers.modeling_layers import GradientCheckpointingLayer
 except ImportError:
     from fla.models.modeling_layers import GradientCheckpointingLayer
-
-logger = logging.get_logger(__name__)
+logger = logging.getLogger(name=__name__)
 
 
 class KDABlock(GradientCheckpointingLayer):
@@ -37,9 +37,9 @@ class KDABlock(GradientCheckpointingLayer):
 
         self.config = config
         self.layer_idx = layer_idx
-
-        self.attn_norm = (RMSNorm if config.fuse_norm else nn.RMSNorm)(config.hidden_size, eps=config.norm_eps)
-        if config.attn is not None and layer_idx in config.attn["layers"]:
+        self.attn_norm = RMSNorm(
+            config.hidden_size, eps=config.norm_eps)
+        if config.attn is not None and layer_idx in config.attn['layers']:
             self.attn = Attention(
                 hidden_size=config.hidden_size,
                 num_heads=config.attn["num_heads"],
@@ -51,20 +51,16 @@ class KDABlock(GradientCheckpointingLayer):
                 layer_idx=layer_idx,
             )
         else:
-            self.attn = KimiDeltaAttention(
-                mode=config.attn_mode,
-                hidden_size=config.hidden_size,
-                expand_v=config.expand_v,
-                head_dim=config.head_dim,
-                num_heads=config.num_heads,
-                num_v_heads=config.num_v_heads,
-                use_short_conv=config.use_short_conv,
-                allow_neg_eigval=config.allow_neg_eigval,
-                conv_size=config.conv_size,
-                norm_eps=config.norm_eps,
-                layer_idx=layer_idx,
-            )
-        self.mlp_norm = (RMSNorm if config.fuse_norm else nn.RMSNorm)(config.hidden_size, eps=config.norm_eps)
+            self.attn = KimiDeltaAttention(mode=config.attn_mode,
+                hidden_size=config.hidden_size, expand_v=config.expand_v,
+                head_dim=config.head_dim, num_heads=config.num_heads,
+                num_v_heads=config.num_v_heads, use_short_conv=config.
+                use_short_conv, allow_neg_eigval=config.allow_neg_eigval,
+                safe_gate=config.safe_gate, lower_bound=config.lower_bound,
+                conv_size=config.conv_size, norm_eps=config.norm_eps,
+                layer_idx=layer_idx)
+        self.mlp_norm = RMSNorm(
+            config.hidden_size, eps=config.norm_eps)
         self.mlp = KDAMLP(
             hidden_size=config.hidden_size,
             hidden_ratio=config.hidden_ratio,
@@ -106,7 +102,7 @@ class KDABlock(GradientCheckpointingLayer):
         return outputs
 
 
-class KDAPreTrainedModel(PreTrainedModel):
+class KDAPreTrainedModel(paddleformers.transformers.PretrainedModel):
     config_class = KDAConfig
     base_model_prefix = "model"
     supports_gradient_checkpointing = True
@@ -122,10 +118,15 @@ class KDAPreTrainedModel(PreTrainedModel):
         prenorm_residual_strategy: str | None = None,
         num_residuals_per_layer: int = 2,
     ):
-        if isinstance(module, KimiDeltaAttention) and next(module.parameters()).device.type != "meta":
+        if isinstance(module, KimiDeltaAttention) and next(module.parameters()
+            ).device.type != 'meta':
             with torch.no_grad():
                 if not getattr(module.A_log, '_is_hf_initialized', False):
-                    module.A_log.copy_(nn.init.uniform_(module.A_log, a=1, b=16).log())
+                    if module.safe_gate:
+                        module.A_log.zero_()
+                    else:
+                        module.A_log.copy_(nn.init.uniform_(module.A_log, a
+                            =1, b=16).log())
                 if not getattr(module.dt_bias, '_is_hf_initialized', False):
                     dt = torch.exp(
                         nn.init.uniform_(module.dt_bias) * (math.log(0.1) - math.log(0.001)) + math.log(0.001),
@@ -133,7 +134,7 @@ class KDAPreTrainedModel(PreTrainedModel):
                     inv_dt = dt + torch.log(-torch.expm1(-dt))
                     module.dt_bias.copy_(inv_dt)
                 module.dt_bias._is_hf_initialized = True
-        if isinstance(module, (nn.Linear, nn.Conv1d)):
+        if isinstance(module, (paddle.compat.nn.Linear, nn.Conv1d)):
             # Slightly different from the TF version which uses truncated_normal for initialization
             # cf https://github.com/pytorch/pytorch/pull/5617
             nn.init.normal_(module.weight, mean=0.0, std=self.config.initializer_range)
@@ -141,7 +142,7 @@ class KDAPreTrainedModel(PreTrainedModel):
                 nn.init.zeros_(module.bias)
         elif isinstance(module, nn.Embedding):
             nn.init.normal_(module.weight, mean=0.0, std=self.config.initializer_range)
-        elif hasattr(module, "reset_parameters"):
+        elif hasattr(module, 'reset_parameters'):
             module.reset_parameters()
 
         if prenorm_residual_strategy is not None:
@@ -179,7 +180,8 @@ class KDAModel(KDAPreTrainedModel):
 
         self.embeddings = nn.Embedding(config.vocab_size, config.hidden_size, self.padding_idx)
         self.layers = nn.ModuleList([KDABlock(config, layer_idx) for layer_idx in range(config.num_hidden_layers)])
-        self.norm = (RMSNorm if config.fuse_norm else nn.RMSNorm)(config.hidden_size, eps=config.norm_eps)
+        self.norm = RMSNorm(config
+            .hidden_size, eps=config.norm_eps)
 
         self.gradient_checkpointing = False
 
@@ -250,12 +252,10 @@ class KDAModel(KDAPreTrainedModel):
 
         if not return_dict:
             return tuple(i for i in [hidden_states, past_key_values, all_hidden_states, all_attns] if i is not None)
-        return BaseModelOutputWithPast(
-            last_hidden_state=hidden_states,
-            past_key_values=past_key_values,
-            hidden_states=all_hidden_states,
-            attentions=all_attns,
-        )
+        return (paddleformers.transformers.model_outputs.
+            BaseModelOutputWithPast(last_hidden_state=hidden_states,
+            past_key_values=past_key_values, hidden_states=
+            all_hidden_states, attentions=all_attns))
 
 
 class KDAForCausalLM(KDAPreTrainedModel, FLAGenerationMixin):
@@ -265,7 +265,8 @@ class KDAForCausalLM(KDAPreTrainedModel, FLAGenerationMixin):
         super().__init__(config)
         self.model = KDAModel(config)
         self.vocab_size = config.vocab_size
-        self.lm_head = nn.Linear(config.hidden_size, config.vocab_size, bias=False)
+        self.lm_head = paddle.compat.nn.Linear(config.hidden_size, config.
+            vocab_size, bias=False)
         self.criterion = None
 
         # Initialize weights and apply final processing
@@ -303,8 +304,6 @@ class KDAForCausalLM(KDAPreTrainedModel, FLAGenerationMixin):
                 )
             else:
                 raise exception
-
-    @deprecate_kwarg("num_logits_to_keep", version="4.50", new_name="logits_to_keep")
     def forward(
         self,
         input_ids: torch.LongTensor = None,
@@ -342,13 +341,13 @@ class KDAForCausalLM(KDAPreTrainedModel, FLAGenerationMixin):
         if not fuse_linear_and_cross_entropy or labels is None:
             logits = self.lm_head(hidden_states if logits_to_keep is None else hidden_states[:, -logits_to_keep:])
         if labels is not None:
-            if getattr(self, "criterion", None) is None:
+            if getattr(self, 'criterion', None) is None:
                 if fuse_linear_and_cross_entropy:
                     criterion = FusedLinearCrossEntropyLoss(use_l2warp=self.config.use_l2warp)
                 elif self.config.fuse_cross_entropy:
                     criterion = FusedCrossEntropyLoss(inplace_backward=True)
                 else:
-                    criterion = nn.CrossEntropyLoss()
+                    criterion = paddle.nn.CrossEntropyLoss()
             else:
                 criterion = self.criterion
             labels = labels.to(hidden_states.device)
@@ -356,17 +355,13 @@ class KDAForCausalLM(KDAPreTrainedModel, FLAGenerationMixin):
             if fuse_linear_and_cross_entropy:
                 loss = criterion(hidden_states, labels, self.lm_head.weight, self.lm_head.bias)
             else:
-                loss = criterion(logits.view(labels.numel(), -1), labels.view(-1))
+                loss = criterion(logits.view(labels.size, -1), labels.view(-1))
                 loss = l2_warp(loss, logits) if self.config.use_l2warp else loss
 
         if not return_dict:
             output = (logits,) + outputs[1:]
             return (loss,) + output if loss is not None else output
-
-        return CausalLMOutputWithPast(
-            loss=loss,
-            logits=logits,
-            past_key_values=outputs.past_key_values,
-            hidden_states=outputs.hidden_states,
-            attentions=outputs.attentions,
-        )
+        return paddleformers.transformers.model_outputs.CausalLMOutputWithPast(
+            loss=loss, logits=logits, past_key_values=outputs.
+            past_key_values, hidden_states=outputs.hidden_states,
+            attentions=outputs.attentions)

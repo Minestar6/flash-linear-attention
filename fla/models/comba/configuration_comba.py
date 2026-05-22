@@ -1,10 +1,9 @@
+import paddleformers
 
 import warnings
 
-from transformers.configuration_utils import PretrainedConfig
 
-
-class CombaConfig(PretrainedConfig):
+class CombaConfig(paddleformers.transformers.PretrainedConfig):
     model_type = 'comba'
     keys_to_ignore_at_inference = ['past_key_values']
 

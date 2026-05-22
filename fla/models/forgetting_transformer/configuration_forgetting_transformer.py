@@ -1,10 +1,9 @@
+import paddleformers
 
 import warnings
 
-from transformers.configuration_utils import PretrainedConfig
 
-
-class ForgettingTransformerConfig(PretrainedConfig):
+class ForgettingTransformerConfig(paddleformers.transformers.PretrainedConfig):
 
     model_type = 'forgetting_transformer'
     keys_to_ignore_at_inference = ['past_key_values']

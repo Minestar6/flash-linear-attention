@@ -245,21 +245,24 @@ class ChunkHGRNFunction(torch.autograd.Function):
     @staticmethod
     @input_guard
     def backward(ctx, do, dht=None):
-        g, o, initial_state = ctx.saved_tensors
+        g, o, initial_state = ctx.saved_tensor()
         B, T, D = do.shape
         BT, BD = 128, min(64, triton.next_power_of_2(D))
         num_warps = 8 if BD == 64 else 4
 
         gc = torch.empty_like(g, dtype=torch.float)
         dx = torch.empty_like(o, dtype=torch.float)
-        def grid(meta): return (triton.cdiv(D, meta['BD']), triton.cdiv(T, meta['BT']), B)
+
+        def grid(meta):
+            return triton.cdiv(D, meta['BD']), triton.cdiv(T, meta['BT']), B
         chunk_hgrn_bwd_kernel_h[grid](
             g, gc, dx, do,
             T=T, D=D, BT=BT,
         )
 
         dg = torch.empty_like(g, dtype=torch.float)
-        def grid(meta): return (triton.cdiv(D, meta['BD']), B)
+        def grid(meta):
+            return triton.cdiv(D, meta['BD']), B
         chunk_hgrn_bwd_kernel_o[grid](
             g, gc, o, dx, dg,
             o.stride(-3), o.stride(-2), o.stride(-1),
@@ -270,9 +273,6 @@ class ChunkHGRNFunction(torch.autograd.Function):
             dg[:, 0] = (initial_state * dx[:, 0] * g[:, 0].float().exp()).to(dg.dtype)
 
         return dx.to(o.dtype), dg, None, None
-
-
-@torch.compiler.disable
 def chunk_hgrn(
     x: torch.Tensor,
     g: torch.Tensor,
