@@ -1,16 +1,16 @@
 from __future__ import annotations
 
+import logging
 import math
 import warnings
 from functools import partial
 from typing import TYPE_CHECKING, Optional
 
+import paddle
+import paddleformers
 import torch
 import torch.nn as nn
-from transformers.modeling_outputs import BaseModelOutputWithPast, CausalLMOutputWithPast
-from transformers.modeling_utils import PreTrainedModel
-from transformers.utils import logging
-from transformers.utils.deprecation import deprecate_kwarg
+from paddleformers.transformers.model_outputs import BaseModelOutputWithPast, CausalLMOutputWithPast
 
 from fla.layers.attn import Attention
 from fla.layers.rodimus import RodimusAttention, SlidingWindowSharedKeyAttention, align_multiple
@@ -20,21 +20,22 @@ from fla.modules import FusedCrossEntropyLoss, FusedLinearCrossEntropyLoss, RMSN
 from fla.modules import GatedMLP as RodimusMLP
 from fla.modules.l2warp import l2_warp
 
+from ...paddle_utils import *
+
 try:
     from torch.distributed.tensor import DTensor
 except (ImportError, AttributeError):
     DTensor = None
 
 if TYPE_CHECKING:
-    from transformers.processing_utils import Unpack
+    from paddleformers.transformers.processing_utils import Unpack
 
 
 try:
     from transformers.modeling_layers import GradientCheckpointingLayer
 except ImportError:
     from fla.models.modeling_layers import GradientCheckpointingLayer
-
-logger = logging.get_logger(__name__)
+logger = logging.getLogger(name=__name__)
 
 
 class RodimusBlock(GradientCheckpointingLayer):
@@ -64,11 +65,8 @@ class RodimusBlock(GradientCheckpointingLayer):
             hidden_act=config.hidden_act,
             fuse_swiglu=config.fuse_swiglu,
         )
-        norm_cls = partial(
-            RMSNorm if self.fuse_norm else nn.RMSNorm,
-            config.hidden_size,
-            eps=config.norm_eps,
-        )
+        norm_cls = partial(RMSNorm,
+                           config.hidden_size, eps=config.norm_eps)
 
         if config.attn is not None and layer_idx in config.attn['layers']:
             self._is_ori_attn = True
@@ -233,7 +231,7 @@ class RodimusBlock(GradientCheckpointingLayer):
         return outputs
 
 
-class RodimusPreTrainedModel(PreTrainedModel):
+class RodimusPreTrainedModel(paddleformers.transformers.PretrainedModel):
 
     config_class = RodimusConfig
     base_model_prefix = 'model'
@@ -256,8 +254,7 @@ class RodimusPreTrainedModel(PreTrainedModel):
         prenorm_residual_strategy: str | None = None,
     ):
         num_residuals_per_layer = self.num_residuals_per_layer
-
-        if isinstance(module, (nn.Linear, nn.Conv1d)):
+        if isinstance(module, (paddle.compat.nn.Linear, nn.Conv1d)):
             # Slightly different from the TF version which uses truncated_normal for initialization
             # cf https://github.com/pytorch/pytorch/pull/5617
             nn.init.normal_(module.weight, mean=0.0, std=self.config.initializer_range)
@@ -286,7 +283,8 @@ class RodimusPreTrainedModel(PreTrainedModel):
         if hasattr(module, 'g_gate_proj'):
             nn.init.xavier_uniform_(module.g_gate_proj.weight, gain=2 ** -2.5)
             with torch.no_grad():
-                if not isinstance(module.g_gate_proj.bias, DTensor):
+                if DTensor is None or not isinstance(module.
+                                                     g_gate_proj.bias, DTensor):
                     module.g_gate_proj.bias.copy_(g_gate_bias)
                 else:
                     logger.warning_once("`g_gate_proj.bias` is a DTensor, skipping initialization")
@@ -294,7 +292,8 @@ class RodimusPreTrainedModel(PreTrainedModel):
         if hasattr(module, 'tau_gate_proj'):
             nn.init.xavier_uniform_(module.tau_gate_proj.weight, gain=2 ** -2.5)
             with torch.no_grad():
-                if not isinstance(module.tau_gate_proj.bias, DTensor):
+                if DTensor is None or not isinstance(module.
+                                                     tau_gate_proj.bias, DTensor):
                     module.tau_gate_proj.bias.copy_(tau_gate_bias)
                 else:
                     logger.warning_once("`tau_gate_proj.bias` is a DTensor, skipping initialization")
@@ -349,7 +348,8 @@ class RodimusModel(RodimusPreTrainedModel):
 
         self.embeddings = nn.Embedding(config.vocab_size, config.hidden_size, self.padding_idx)
         self.layers = nn.ModuleList([RodimusBlock(config, layer_idx) for layer_idx in range(config.num_hidden_layers)])
-        self.norm = (RMSNorm if config.fuse_norm else nn.RMSNorm)(config.hidden_size, eps=config.norm_eps)
+        self.norm = RMSNorm(config
+                            .hidden_size, eps=config.norm_eps)
 
         self.gradient_checkpointing = False
 
@@ -436,12 +436,9 @@ class RodimusModel(RodimusPreTrainedModel):
 
         if not return_dict:
             return tuple(i for i in [hidden_states, past_key_values, all_hidden_states, all_attns] if i is not None)
-        return BaseModelOutputWithPast(
-            last_hidden_state=hidden_states,
-            past_key_values=past_key_values,
-            hidden_states=all_hidden_states,
-            attentions=all_attns,
-        )
+        return (paddleformers.transformers.model_outputs.
+                BaseModelOutputWithPast(last_hidden_state=hidden_states,
+                                        past_key_values=past_key_values, hidden_states=all_hidden_states, attentions=all_attns))
 
 
 class RodimusForCausalLM(RodimusPreTrainedModel, FLAGenerationMixin):
@@ -452,7 +449,8 @@ class RodimusForCausalLM(RodimusPreTrainedModel, FLAGenerationMixin):
         super().__init__(config)
         self.model = RodimusModel(config)
         self.vocab_size = config.vocab_size
-        self.lm_head = nn.Linear(config.hidden_size, config.vocab_size, bias=False)
+        self.lm_head = paddle.compat.nn.Linear(config.hidden_size, config.
+                                               vocab_size, bias=False)
         self.criterion = None
 
         # Initialize weights and apply final processing
@@ -491,7 +489,6 @@ class RodimusForCausalLM(RodimusPreTrainedModel, FLAGenerationMixin):
             else:
                 raise exception
 
-    @deprecate_kwarg("num_logits_to_keep", version="4.50", new_name="logits_to_keep")
     def forward(
         self,
         input_ids: torch.LongTensor = None,
@@ -536,7 +533,7 @@ class RodimusForCausalLM(RodimusPreTrainedModel, FLAGenerationMixin):
                 elif self.config.fuse_cross_entropy:
                     criterion = FusedCrossEntropyLoss(inplace_backward=True)
                 else:
-                    criterion = nn.CrossEntropyLoss()
+                    criterion = paddle.nn.CrossEntropyLoss()
             else:
                 criterion = self.criterion
             labels = labels.to(hidden_states.device)
@@ -544,17 +541,13 @@ class RodimusForCausalLM(RodimusPreTrainedModel, FLAGenerationMixin):
             if self.config.fuse_linear_cross_entropy:
                 loss = criterion(hidden_states, labels, self.lm_head.weight, self.lm_head.bias)
             else:
-                loss = criterion(logits.view(labels.numel(), -1), labels.view(-1))
+                loss = criterion(logits.view(labels.size, -1), labels.view(-1))
                 loss = l2_warp(loss, logits) if self.config.use_l2warp else loss
 
         if not return_dict:
             output = (logits,) + outputs[1:]
             return (loss,) + output if loss is not None else output
-
-        return CausalLMOutputWithPast(
-            loss=loss,
-            logits=logits,
-            past_key_values=outputs.past_key_values,
-            hidden_states=outputs.hidden_states,
-            attentions=outputs.attentions,
-        )
+        return paddleformers.transformers.model_outputs.CausalLMOutputWithPast(
+            loss=loss, logits=logits, past_key_values=outputs.
+            past_key_values, hidden_states=outputs.hidden_states,
+            attentions=outputs.attentions)

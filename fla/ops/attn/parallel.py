@@ -509,13 +509,7 @@ def parallel_attn_bwd_preprocess(
 ):
     V = o.shape[-1]
     delta = torch.empty_like(o[..., 0], dtype=torch.float)
-    parallel_attn_bwd_kernel_preprocess[(delta.numel(),)](
-        o=o,
-        do=do,
-        delta=delta,
-        B=triton.next_power_of_2(V),
-        V=V,
-    )
+    parallel_attn_bwd_kernel_preprocess[delta.size,](o=o, do=do, delta=delta, B=triton.next_power_of_2(V), V=V)
     return delta
 
 
@@ -631,7 +625,6 @@ def parallel_attn_bwd(
     return dq, dk, dv, dg_cumsum
 
 
-@torch.compile
 class ParallelAttentionFunction(torch.autograd.Function):
 
     @staticmethod
@@ -660,7 +653,7 @@ class ParallelAttentionFunction(torch.autograd.Function):
     @contiguous
     @autocast_custom_bwd
     def backward(ctx, do):
-        q, k, v, o, g_cumsum, lse = ctx.saved_tensors
+        q, k, v, o, g_cumsum, lse = ctx.saved_tensor()
         dq, dk, dv, dg = parallel_attn_bwd(
             q=q,
             k=k,

@@ -1,10 +1,9 @@
 # Copyright (c) 2023-2025, Songlin Yang, Yu Zhang
-
 """
 Linear attention in Based.
 https://github.com/HazyResearch/zoology/blob/main/zoology/mixers/based.py
 """
-
+import paddle
 import torch
 import torch.nn as nn
 from einops import rearrange
@@ -12,6 +11,8 @@ from einops import rearrange
 from fla.modules.feature_map import TaylorFeatureMap
 from fla.ops.based import parallel_based
 from fla.ops.linear_attn import chunk_linear_attn, fused_chunk_linear_attn
+
+from ..paddle_utils import *
 
 
 class BasedLinearAttention(nn.Module):
@@ -38,11 +39,14 @@ class BasedLinearAttention(nn.Module):
         self.head_dim = self.hidden_size // self.num_key_value_heads
         assert self.hidden_size % self.head_dim == 0
         self.causal = causal
-
-        self.q_proj = nn.Linear(self.hidden_size, self.feature_dim * self.num_heads, bias=False)
-        self.k_proj = nn.Linear(self.hidden_size, self.feature_dim * self.num_heads, bias=False)
-        self.v_proj = nn.Linear(self.hidden_size, self.num_key_value_heads * self.head_dim, bias=False)
-        self.o_proj = nn.Linear(self.num_heads * self.head_dim, self.hidden_size, bias=False)
+        self.q_proj = paddle.compat.nn.Linear(self.hidden_size, self.
+                                              feature_dim * self.num_heads, bias=False)
+        self.k_proj = paddle.compat.nn.Linear(self.hidden_size, self.
+                                              feature_dim * self.num_heads, bias=False)
+        self.v_proj = paddle.compat.nn.Linear(self.hidden_size, self.
+                                              num_key_value_heads * self.head_dim, bias=False)
+        self.o_proj = paddle.compat.nn.Linear(self.num_heads * self.
+                                              head_dim, self.hidden_size, bias=False)
         self.dropout = nn.Identity()
         self.feature_map = TaylorFeatureMap(feature_dim)
         self.eps = eps

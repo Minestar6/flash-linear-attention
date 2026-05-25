@@ -1,23 +1,26 @@
 from __future__ import annotations
 
+import logging
 import math
+import os
 from typing import TYPE_CHECKING
 
+import paddle
+import paddleformers
 import torch
 import torch.nn as nn
 from einops import rearrange
-from transformers.activations import ACT2FN
-from transformers.utils import logging
 
 from fla.layers.mamba2 import apply_mask_to_padding_states, causal_conv1d_fn, causal_conv1d_update, is_fast_path_available
 from fla.layers.utils import get_layer_cache, update_layer_cache
 from fla.modules.layernorm_gated import RMSNormGated, rmsnorm_fn
 from fla.ops.log_linear_attn.chunk import LogLinearAttentionState, chunk_log_linear_attn
 
+from ..paddle_utils import *
+
 if TYPE_CHECKING:
     from fla.models.utils import Cache
-
-logger = logging.get_logger(__name__)
+logger = logging.getLogger(name=__name__)
 
 
 def ceil_log(x: int, b: int) -> int:
@@ -190,7 +193,7 @@ def hmamba_split_conv1d_scan_combined(
 
     zxBCdtl_splits = [dim, dim + 2 * ngroups * dstate, nheads, nheads * dlambda]
     xBC_splits = [dim, ngroups * dstate, ngroups * dstate]
-    z, xBC, dt, dl = torch.split(zxbcdtdl, zxBCdtl_splits, dim=-1)
+    z, xBC, dt, dl = paddle.compat.split(zxbcdtdl, zxBCdtl_splits, dim=-1)
     _conv_fn = conv1d_fn if conv1d_fn is not None else causal_conv1d_fn
     _conv_out = _conv_fn(
         rearrange(xBC, "b s d -> b d s"),
@@ -202,7 +205,7 @@ def hmamba_split_conv1d_scan_combined(
     if conv_backend == 'triton':
         _conv_out = _conv_out[0]
     xBC = rearrange(_conv_out, "b d s -> b s d")
-    x, B, C = torch.split(xBC, xBC_splits, dim=-1)
+    x, B, C = paddle.compat.split(xBC, xBC_splits, dim=-1)
     x = rearrange(x, "b l (h p) -> b l h p", h=nheads, p=headdim)
     B = rearrange(B, "b l (g n) -> b l g n", g=ngroups, n=dstate)
     C = rearrange(C, "b l (g n) -> b l g n", g=ngroups, n=dstate)
@@ -237,7 +240,7 @@ def hmamba_split_conv1d_scan_combined(
             group_size=None,
             norm_before_gate=False,
         )
-    out = torch.nn.functional.linear(y, outproj_weight, outproj_bias)
+    out = paddle.compat.nn.functional.linear(y, outproj_weight, outproj_bias)
     return out
 
 
@@ -281,7 +284,7 @@ class LogLinearMamba2(nn.Module):
         self.layer_idx = layer_idx
         self.use_conv_bias = use_conv_bias
         self.activation = hidden_act
-        self.act = ACT2FN[hidden_act]
+        self.act = paddleformers.transformers.activations.ACT2FN[hidden_act]
 
         self.layer_norm_epsilon = norm_eps
         self.rms_norm = rms_norm
@@ -313,11 +316,8 @@ class LogLinearMamba2(nn.Module):
             + self.conv_dim
             + self.num_heads * (self.num_lambda_dims + 1)
         )
-        self.in_proj = nn.Linear(
-            self.hidden_size,
-            projection_size,
-            bias=use_bias,
-        )
+        self.in_proj = paddle.compat.nn.Linear(self.hidden_size,
+                                               projection_size, bias=use_bias)
         # selective projection used to make dt, B and C input dependant
 
         # time step projection (discretization)
@@ -340,10 +340,8 @@ class LogLinearMamba2(nn.Module):
         )
         self.D = nn.Parameter(torch.ones(self.num_heads))
         self.D._no_weight_decay = True
-
-        self.out_proj = nn.Linear(
-            self.intermediate_size, self.hidden_size, bias=use_bias,
-        )
+        self.out_proj = paddle.compat.nn.Linear(self.intermediate_size,
+                                                self.hidden_size, bias=use_bias)
         self.use_bias = use_bias
 
         if not is_fast_path_available:
@@ -354,7 +352,6 @@ class LogLinearMamba2(nn.Module):
                 "To install follow https://github.com/state-spaces/mamba/#installation and"
                 "https://github.com/Dao-AILab/causal-conv1d",
             )
-        import os
         backend = os.environ.get('FLA_CONV_BACKEND', backend)
         assert backend in ['cuda', 'triton'], f"Unsupported backend: {backend}"
         if backend == 'cuda' and causal_conv1d_fn is None:
@@ -414,17 +411,9 @@ class LogLinearMamba2(nn.Module):
         if last_state is not None:
             if hidden_states.shape[1] != 1:
                 raise ValueError("LogLinearMamba2 cached decoding only supports a single new token per step.")
-
-            gate, xBC, dt, dl = torch.split(
-                projected_states.squeeze(1),
-                [
-                    self.intermediate_size,
-                    self.conv_dim,
-                    self.num_heads,
-                    self.num_heads * self.num_lambda_dims,
-                ],
-                dim=-1,
-            )
+            gate, xBC, dt, dl = paddle.compat.split(projected_states.
+                                                    squeeze(1), [self.intermediate_size, self.conv_dim, self.
+                                                                 num_heads, self.num_heads * self.num_lambda_dims], dim=-1)
 
             # 2. Convolution sequence transformation
             conv_state = last_state['conv_state']
@@ -435,16 +424,8 @@ class LogLinearMamba2(nn.Module):
                 self.conv1d.bias,
                 self.activation,
             )
-
-            x, B, C = torch.split(
-                xBC,
-                [
-                    self.intermediate_size,
-                    groups_time_state_size,
-                    groups_time_state_size,
-                ],
-                dim=-1,
-            )
+            x, B, C = paddle.compat.split(xBC, [self.intermediate_size,
+                                                groups_time_state_size, groups_time_state_size], dim=-1)
 
             # 3. SSM transformation
             A = -torch.exp(self.A_log.float())  # (nheads,)
@@ -517,45 +498,23 @@ class LogLinearMamba2(nn.Module):
 
             # 2-4. Fused kernel for conv1d, SSM, and the final projection
             if self.training and not use_cache:
-                out = torch.utils.checkpoint.checkpoint(
-                    hmamba_split_conv1d_scan_combined,
-                    use_reentrant=False,
-                    # function arguments
-                    zxbcdtdl=projected_states,
-                    conv1d_weight=rearrange(self.conv1d.weight, "d 1 w -> d w"),
-                    conv1d_bias=self.conv1d.bias,
-                    dt_bias=self.dt_bias,
-                    A=A,
-                    L=self.L,
-                    D=self.D,
-                    chunk_size=self.chunk_size,
-                    conv1d_fn=self.causal_conv1d_fn,
-                    conv_backend=self.backend,
-                    seq_idx=None,  # was seq_idx
-                    activation=self.activation,
-                    rmsnorm_weight=self.norm.weight,
-                    rmsnorm_eps=self.norm.eps,
-                    outproj_weight=self.out_proj.weight,
-                    outproj_bias=self.out_proj.bias,
-                    headdim=self.head_dim,
-                    ngroups=self.n_groups,
-                    norm_before_gate=False,
-                    return_final_states=False,
-                    **dt_limit_kwargs,
-                )
+                out = paddle.distributed.fleet.utils.recompute(
+                    hmamba_split_conv1d_scan_combined, use_reentrant=False,
+                    zxbcdtdl=projected_states, conv1d_weight=rearrange(
+                        self.conv1d.weight, 'd 1 w -> d w'),
+                    conv1d_bias=self.conv1d.bias, dt_bias=self.dt_bias, A=A,
+                    L=self.L, D=self.D, chunk_size=self.chunk_size,
+                    conv1d_fn=self.causal_conv1d_fn, conv_backend=self.
+                    backend, seq_idx=None, activation=self.activation,
+                    rmsnorm_weight=self.norm.weight, rmsnorm_eps=self.norm.
+                    eps, outproj_weight=self.out_proj.weight, outproj_bias=self.out_proj.bias, headdim=self.head_dim, ngroups=self
+                    .n_groups, norm_before_gate=False, return_final_states=False, **dt_limit_kwargs)
                 return out, None, None
 
             else:
-                gate, xBC, dt, dl = torch.split(
-                    projected_states,
-                    [
-                        self.intermediate_size,
-                        self.conv_dim,
-                        self.num_heads,
-                        self.num_heads * self.num_lambda_dims,
-                    ],
-                    dim=-1,
-                )
+                gate, xBC, dt, dl = paddle.compat.split(projected_states, [
+                    self.intermediate_size, self.conv_dim, self.num_heads,
+                    self.num_heads * self.num_lambda_dims], dim=-1)
 
                 # 2. Convolution sequence transformation
                 # Init cache
@@ -563,10 +522,8 @@ class LogLinearMamba2(nn.Module):
                 new_conv_state = None
                 if use_cache:
                     xBC_t = rearrange(masked_xBC, "b l d -> b d l")
-                    new_conv_state = torch.nn.functional.pad(
-                        xBC_t,
-                        (self.conv_kernel_size - xBC_t.shape[-1], 0),
-                    )
+                    new_conv_state = paddle.compat.nn.functional.pad(xBC_t,
+                                                                     (self.conv_kernel_size - xBC_t.shape[-1], 0))
 
                 _conv1d_output = self.causal_conv1d_fn(
                     x=xBC.transpose(1, 2),
@@ -585,16 +542,8 @@ class LogLinearMamba2(nn.Module):
                     hidden_states=xBC,
                     attention_mask=attention_mask,
                 )
-
-                x, B, C = torch.split(
-                    xBC,
-                    [
-                        self.intermediate_size,
-                        groups_time_state_size,
-                        groups_time_state_size,
-                    ],
-                    dim=-1,
-                )
+                x, B, C = paddle.compat.split(xBC, [self.intermediate_size,
+                                                    groups_time_state_size, groups_time_state_size], dim=-1)
 
                 # 3. SSM transformation
                 y, hssm_state = hmamba_chunk_scan_combined(

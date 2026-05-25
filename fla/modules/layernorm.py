@@ -13,21 +13,26 @@ from __future__ import annotations
 
 from functools import partial
 
+import paddle
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import triton
 import triton.language as tl
 from einops import rearrange
-from torch.distributed import DeviceMesh
-from torch.distributed.tensor import Replicate, Shard, distribute_module
-from torch.distributed.tensor.parallel import ParallelStyle
 
 from fla.utils import autotune_cache_kwargs, get_multiprocessor_count, input_guard
 
 try:
-    from torch.distributed.tensor import DTensor
+    from torch.distributed import DeviceMesh
+    from torch.distributed.tensor import DTensor, Replicate, Shard, distribute_module
+    from torch.distributed.tensor.parallel import ParallelStyle
 except (ImportError, AttributeError):
+    DeviceMesh = None
+    Replicate = None
+    Shard = None
+    distribute_module = None
+    ParallelStyle = object
     DTensor = None
 
 
@@ -746,12 +751,9 @@ class LayerNormFunction(torch.autograd.Function):
         x = x.reshape(-1, (x.shape[-1] // num_groups))
         if residual is not None:
             assert residual.shape == x_shape_og
-            residual = residual.reshape_as(x)
-        residual_dtype = (
-            residual.dtype
-            if residual is not None
-            else (torch.float32 if residual_in_fp32 else None)
-        )
+            residual = residual.reshape(x.shape)
+        residual_dtype = (residual.dtype if residual is not None else torch
+                          .float32 if residual_in_fp32 else None)
         y, mean, rstd, res_out = layer_norm_fwd(
             x,
             weight,
@@ -776,7 +778,7 @@ class LayerNormFunction(torch.autograd.Function):
     @staticmethod
     @input_guard
     def backward(ctx, dy, *args):
-        x, weight, bias, mean, rstd = ctx.saved_tensors
+        x, weight, bias, mean, rstd = ctx.saved_tensor()
         dy = dy.reshape(-1, (dy.shape[-1] // ctx.num_groups))
         assert dy.shape == x.shape
         if ctx.prenorm:
@@ -961,15 +963,9 @@ def group_norm_linear(
 
 class LayerNorm(nn.Module):
 
-    def __init__(
-        self,
-        hidden_size: int,
-        elementwise_affine: bool = True,
-        bias: bool = False,
-        eps: float = 1e-5,
-        device: torch.device | None = None,
-        dtype: torch.dtype | None = None,
-    ) -> LayerNorm:
+    def __init__(self, hidden_size: int, elementwise_affine: bool = True,
+                 bias: bool = False, eps: float = 1e-05, device=None, dtype: (torch.dtype
+                                                                              | None) = None) -> LayerNorm:
         factory_kwargs = {"device": device, "dtype": dtype}
         super().__init__()
 
@@ -1014,17 +1010,10 @@ class LayerNorm(nn.Module):
 
 class GroupNorm(nn.Module):
 
-    def __init__(
-        self,
-        num_groups: int,
-        hidden_size: int,
-        elementwise_affine: bool = True,
-        bias: bool = False,
-        eps: float = 1e-5,
-        is_rms_norm: bool = False,
-        device: torch.device | None = None,
-        dtype: torch.dtype | None = None,
-    ) -> GroupNorm:
+    def __init__(self, num_groups: int, hidden_size: int,
+                 elementwise_affine: bool = True, bias: bool = False, eps: float = 1e-05,
+                 is_rms_norm: bool = False, device=None, dtype: (torch.dtype | None) =
+                 None) -> GroupNorm:
         factory_kwargs = {"device": device, "dtype": dtype}
         super().__init__()
 
@@ -1078,15 +1067,9 @@ class GroupNorm(nn.Module):
 
 class RMSNorm(nn.Module):
 
-    def __init__(
-        self,
-        hidden_size: int,
-        elementwise_affine: bool = True,
-        bias: bool = False,
-        eps: float = 1e-5,
-        device: torch.device | None = None,
-        dtype: torch.dtype | None = None,
-    ) -> RMSNorm:
+    def __init__(self, hidden_size: int, elementwise_affine: bool = True,
+                 bias: bool = False, eps: float = 1e-05, device=None, dtype: (torch.dtype
+                                                                              | None) = None) -> RMSNorm:
         factory_kwargs = {"device": device, "dtype": dtype}
         super().__init__()
 
@@ -1155,12 +1138,9 @@ class LayerNormLinearFunction(torch.autograd.Function):
         x = x.reshape(-1, (x.shape[-1] // num_groups))
         if residual is not None:
             assert residual.shape == x_shape_og
-            residual = residual.reshape_as(x)
-        residual_dtype = (
-            residual.dtype
-            if residual is not None
-            else (torch.float32 if residual_in_fp32 else None)
-        )
+            residual = residual.reshape(x.shape)
+        residual_dtype = (residual.dtype if residual is not None else torch
+                          .float32 if residual_in_fp32 else None)
         y, mean, rstd, res_out = layer_norm_fwd(
             x,
             norm_weight,
@@ -1176,7 +1156,8 @@ class LayerNormLinearFunction(torch.autograd.Function):
         dtype = torch.get_autocast_gpu_dtype() if torch.is_autocast_enabled() else y.dtype
         linear_weight = linear_weight.to(dtype)
         linear_bias = linear_bias.to(dtype) if linear_bias is not None else None
-        out = F.linear(y.to(linear_weight.dtype), linear_weight, linear_bias)
+        out = paddle.compat.nn.functional.linear(y.to(linear_weight.dtype),
+                                                 linear_weight, linear_bias)
         # We don't store y, will be recomputed in the backward pass to save memory
         ctx.save_for_backward(res_out, norm_weight, norm_bias, linear_weight, mean, rstd)
         ctx.x_shape_og = x_shape_og
@@ -1192,9 +1173,10 @@ class LayerNormLinearFunction(torch.autograd.Function):
     @staticmethod
     @input_guard
     def backward(ctx, dout, *args):
-        x, norm_weight, norm_bias, linear_weight, mean, rstd = ctx.saved_tensors
+        x, norm_weight, norm_bias, linear_weight, mean, rstd = (ctx.
+                                                                saved_tensor())
         dout = dout.reshape(-1, dout.shape[-1])
-        dy = F.linear(dout, linear_weight.t())
+        dy = paddle.compat.nn.functional.linear(dout, linear_weight.t())
         dy = dy.reshape(-1, (dy.shape[-1] // ctx.num_groups))
         dlinear_bias = None if ctx.linear_bias_is_none else dout.sum(0)
         assert dy.shape == x.shape
@@ -1236,15 +1218,9 @@ class LayerNormLinearFunction(torch.autograd.Function):
 
 class LayerNormLinear(nn.Module):
 
-    def __init__(
-        self,
-        hidden_size,
-        elementwise_affine: bool = True,
-        bias: bool = False,
-        eps: float = 1e-5,
-        device: torch.device | None = None,
-        dtype: torch.dtype | None = None,
-    ) -> LayerNormLinear:
+    def __init__(self, hidden_size, elementwise_affine: bool = True, bias:
+                 bool = False, eps: float = 1e-05, device=None, dtype: (torch.dtype |
+                                                                        None) = None) -> LayerNormLinear:
         factory_kwargs = {"device": device, "dtype": dtype}
         super().__init__()
 
@@ -1292,17 +1268,10 @@ class LayerNormLinear(nn.Module):
 
 class GroupNormLinear(nn.Module):
 
-    def __init__(
-        self,
-        num_groups: int,
-        hidden_size: int,
-        elementwise_affine: bool = True,
-        bias: bool = False,
-        eps: float = 1e-5,
-        is_rms_norm: bool = False,
-        device: torch.device | None = None,
-        dtype: torch.dtype | None = None,
-    ) -> GroupNormLinear:
+    def __init__(self, num_groups: int, hidden_size: int,
+                 elementwise_affine: bool = True, bias: bool = False, eps: float = 1e-05,
+                 is_rms_norm: bool = False, device=None, dtype: (torch.dtype | None) =
+                 None) -> GroupNormLinear:
         factory_kwargs = {"device": device, "dtype": dtype}
         super().__init__()
 
@@ -1358,15 +1327,9 @@ class GroupNormLinear(nn.Module):
 
 class RMSNormLinear(nn.Module):
 
-    def __init__(
-        self,
-        hidden_size,
-        elementwise_affine: bool = True,
-        bias: bool = False,
-        eps: float = 1e-5,
-        device: torch.device | None = None,
-        dtype: torch.dtype | None = None,
-    ) -> RMSNormLinear:
+    def __init__(self, hidden_size, elementwise_affine: bool = True, bias:
+                 bool = False, eps: float = 1e-05, device=None, dtype: (torch.dtype |
+                                                                        None) = None) -> RMSNormLinear:
         factory_kwargs = {"device": device, "dtype": dtype}
         super().__init__()
 

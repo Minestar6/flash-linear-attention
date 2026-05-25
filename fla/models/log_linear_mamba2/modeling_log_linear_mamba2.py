@@ -1,18 +1,20 @@
+import logging
 import math
 
+import paddle
+import paddleformers
 import torch
+from paddleformers.transformers.model_outputs import BaseModelOutputWithPast, CausalLMOutputWithPast
 from torch import nn
-from transformers.modeling_outputs import BaseModelOutputWithPast, CausalLMOutputWithPast
-from transformers.modeling_utils import PreTrainedModel
-from transformers.utils import logging
-from transformers.utils.deprecation import deprecate_kwarg
 
 from fla.layers.log_linear_mamba2 import LogLinearMamba2
 from fla.models.log_linear_mamba2.configuration_log_linear_mamba2 import LogLinearMamba2Config
 from fla.models.utils import Cache, FLAGenerationMixin
 from fla.modules import FusedCrossEntropyLoss, FusedLinearCrossEntropyLoss, GatedMLP, RMSNorm
 
-logger = logging.get_logger(__name__)
+from ...paddle_utils import *
+
+logger = logging.getLogger(name=__name__)
 
 
 class LogLinearMamba2Block(nn.Module):
@@ -24,26 +26,12 @@ class LogLinearMamba2Block(nn.Module):
         self.layer_idx = layer_idx
         self.mixer_norm = RMSNorm(config.hidden_size, eps=config.norm_eps, dtype=torch.float32)
         self.mlp_norm = RMSNorm(config.hidden_size, eps=config.norm_eps, dtype=torch.float32)
-        self.mixer = LogLinearMamba2(
-            num_heads=config.num_heads,
-            head_dim=config.head_dim,
-            hidden_size=config.hidden_size,
-            state_size=config.state_size,
-            expand=config.expand,
-            n_groups=config.n_groups,
-            conv_kernel=config.conv_kernel,
-            use_conv_bias=config.use_conv_bias,
-            hidden_act=config.hidden_act,
-            rms_norm=config.rms_norm,
-            chunk_size=config.chunk_size,
-            time_step_rank=config.time_step_rank,
-            time_step_limit=config.time_step_limit,
-            time_step_min=config.time_step_min,
-            time_step_max=config.time_step_max,
-            use_bias=config.use_bias,
-            norm_eps=config.norm_eps,
-            layer_idx=layer_idx,
-        )
+        self.mixer = LogLinearMamba2(num_heads=config.num_heads, head_dim=config.head_dim, hidden_size=config.hidden_size, state_size=config.state_size, expand=config.expand, n_groups=config.
+                                     n_groups, conv_kernel=config.conv_kernel, use_conv_bias=config.
+                                     use_conv_bias, hidden_act=config.hidden_act, rmsnorm=config.
+                                     rmsnorm, D_has_hdim=config.D_has_hdim, norm_before_gate=config.
+                                     norm_before_gate, chunk_size=config.chunk_size, dt_limit=config
+                                     .dt_limit, dt_min=config.dt_min, dt_max=config.dt_max, use_bias=config.use_bias, norm_eps=config.norm_eps, layer_idx=layer_idx)
         self.mlp = GatedMLP(
             hidden_size=config.hidden_size,
             hidden_ratio=4,
@@ -84,7 +72,8 @@ class LogLinearMamba2Block(nn.Module):
         return hidden_states, attentions, past_key_values
 
 
-class LogLinearMamba2PreTrainedModel(PreTrainedModel, FLAGenerationMixin):
+class LogLinearMamba2PreTrainedModel(paddleformers.transformers.
+                                     PretrainedModel, FLAGenerationMixin):
     """
     An abstract class to handle weights initialization and a simple interface for downloading and loading pretrained
     models.
@@ -103,45 +92,48 @@ class LogLinearMamba2PreTrainedModel(PreTrainedModel, FLAGenerationMixin):
     ):
         """Initialize the weights."""
         if isinstance(module, LogLinearMamba2):
-            # --- A_log ---
-            A = torch.arange(1, module.num_heads + 1)
-            with torch.no_grad():
-                if not isinstance(module.A_log, torch.distributed.tensor.DTensor):
-                    module.A_log.copy_(torch.log(A))
-                else:
-                    logger.warning_once("`A_log` is a DTensor, skipping initialization")
+            if not getattr(module.A_log, '_is_hf_initialized', False):
+                # --- A_log ---
+                A = torch.arange(1, module.num_heads + 1)
+                with torch.no_grad():
+                    if not isinstance(module.A_log, torch.distributed.
+                                      tensor.DTensor):
+                        module.A_log.copy_(torch.log(A))
+                    else:
+                        logger.warning_once(
+                            '`A_log` is a DTensor, skipping initialization')
             module.A_log._no_weight_decay = True
+            if not getattr(module.D, '_is_hf_initialized', False):
 
-            # --- D ---
-            nn.init.ones_(module.D)
+                # --- D ---
+                nn.init.ones_(module.D)
             module.D._no_weight_decay = True
+            if self.config.conv_init is not None:
+                nn.init.uniform_(module.conv1d.weight, -self.config.
+                                 conv_init, self.config.conv_init)
+                module.conv1d.weight._no_reinit = True
+            if not getattr(module.L, '_is_hf_initialized', False):
 
-            # --- L ---
-            nn.init.ones_(module.L)
+                # --- L ---
+                nn.init.ones_(module.L)
             module.L._no_weight_decay = True
-
-            # --- dt_bias ---
-            dt = torch.exp(
-                torch.rand(self.config.num_heads)
-                * (
-                    math.log(self.config.time_step_max)
-                    - math.log(self.config.time_step_min)
-                )
-                + math.log(self.config.time_step_min),
-            ).clamp(min=self.config.time_step_floor)
+            if not getattr(module.dt_bias, '_is_hf_initialized', False):
+                dt = torch.exp(torch.rand(self.config.num_heads) * (math.
+                                                                    log(self.config.dt_max) - math.log(self.config.dt_min)) +
+                               math.log(self.config.dt_min)).clamp(min=self.config.
+                                                                   dt_init_floor)
 
             # Inverse of softplus: https://github.com/pytorch/pytorch/issues/72759
-            inv_dt = dt + torch.log(-torch.expm1(-dt))
-            with torch.no_grad():
-                if not isinstance(module.dt_bias, torch.distributed.tensor.DTensor):
-                    module.dt_bias.copy_(inv_dt)
-                else:
-                    logger.warning_once(
-                        "`dt_bias` is a DTensor, skipping initialization",
-                    )
+                inv_dt = dt + torch.log(-torch.expm1(-dt))
+                with torch.no_grad():
+                    if not isinstance(module.dt_bias, torch.distributed.
+                                      tensor.DTensor):
+                        module.dt_bias.copy_(inv_dt)
+                    else:
+                        logger.warning_once(
+                            '`dt_bias` is a DTensor, skipping initialization')
             module.dt_bias._no_reinit = True
-
-        elif isinstance(module, (nn.Linear, nn.Conv1d)):
+        elif isinstance(module, (paddle.compat.nn.Linear, nn.Conv1d)):
             # Slightly different from the TF version which uses truncated_normal for initialization
             # cf https://github.com/pytorch/pytorch/pull/5617
             nn.init.normal_(module.weight, mean=0.0, std=self.config.initializer_range)
@@ -152,7 +144,7 @@ class LogLinearMamba2PreTrainedModel(PreTrainedModel, FLAGenerationMixin):
                     raise ValueError("This is not supposed to happen")
         elif isinstance(module, nn.Embedding):
             nn.init.normal_(module.weight, mean=0.0, std=self.config.initializer_range)
-        elif hasattr(module, "reset_parameters"):
+        elif hasattr(module, 'reset_parameters'):
             module.reset_parameters()
 
         if self.config.rescale_prenorm_residual:
@@ -171,7 +163,7 @@ class LogLinearMamba2PreTrainedModel(PreTrainedModel, FLAGenerationMixin):
                 p = module.out_proj.weight
             elif hasattr(module, "down_proj"):
                 p = module.down_proj.weight
-            if p is not None:
+            if p is not None and not getattr(p, '_is_hf_initialized', False):
                 # Special Scaled Initialization --> There are 2 Layer Norms per Transformer Block
                 # Following Pytorch init, except scale by 1/sqrt(2 * n_layer)
                 # We need to reinit p since this code could be called multiple times
@@ -299,13 +291,9 @@ class LogLinearMamba2Model(LogLinearMamba2PreTrainedModel):
                 for i in [hidden_states, past_key_values, all_hidden_states, all_attns]
                 if i is not None
             )
-
-        return BaseModelOutputWithPast(
-            last_hidden_state=hidden_states,
-            past_key_values=past_key_values,
-            hidden_states=all_hidden_states,
-            attentions=all_attns if all_attns else None,
-        )
+        return (paddleformers.transformers.model_outputs.
+                BaseModelOutputWithPast(last_hidden_state=hidden_states,
+                                        past_key_values=past_key_values, hidden_states=all_hidden_states, attentions=all_attns if all_attns else None))
 
 
 class LogLinearMamba2ForCausalLM(LogLinearMamba2PreTrainedModel):
@@ -314,7 +302,8 @@ class LogLinearMamba2ForCausalLM(LogLinearMamba2PreTrainedModel):
     def __init__(self, config):
         super().__init__(config)
         self.backbone = LogLinearMamba2Model(config)
-        self.lm_head = nn.Linear(config.hidden_size, config.vocab_size, bias=False)
+        self.lm_head = paddle.compat.nn.Linear(config.hidden_size, config.
+                                               vocab_size, bias=False)
         self.criterion = None
 
         # Initialize weights and apply final processing
@@ -332,7 +321,6 @@ class LogLinearMamba2ForCausalLM(LogLinearMamba2PreTrainedModel):
     def set_input_embeddings(self, new_embeddings):
         return self.backbone.set_input_embeddings(new_embeddings)
 
-    @deprecate_kwarg("num_logits_to_keep", version="4.50", new_name="logits_to_keep")
     def forward(
         self,
         input_ids: torch.LongTensor | None = None,
@@ -373,13 +361,13 @@ class LogLinearMamba2ForCausalLM(LogLinearMamba2PreTrainedModel):
                 else hidden_states[:, -logits_to_keep:],
             )
         if labels is not None:
-            if getattr(self, "criterion", None) is None:
+            if getattr(self, 'criterion', None) is None:
                 if fuse_linear_and_cross_entropy:
                     criterion = FusedLinearCrossEntropyLoss()
                 elif self.config.fuse_cross_entropy:
                     criterion = FusedCrossEntropyLoss(inplace_backward=True)
                 else:
-                    criterion = nn.CrossEntropyLoss()
+                    criterion = paddle.nn.CrossEntropyLoss()
             else:
                 criterion = self.criterion
             labels = labels.to(hidden_states.device)
@@ -395,16 +383,12 @@ class LogLinearMamba2ForCausalLM(LogLinearMamba2PreTrainedModel):
                     hidden_states, labels, self.lm_head.weight, self.lm_head.bias,
                 )
             else:
-                loss = criterion(logits.view(labels.numel(), -1), labels.view(-1))
+                loss = criterion(logits.view(labels.size, -1), labels.view(-1))
 
         if not return_dict:
             output = (logits,) + outputs[1:]
             return (loss,) + output if loss is not None else output
-
-        return CausalLMOutputWithPast(
-            loss=loss,
-            logits=logits,
-            past_key_values=outputs.past_key_values,
-            hidden_states=outputs.hidden_states,
-            attentions=outputs.attentions,
-        )
+        return paddleformers.transformers.model_outputs.CausalLMOutputWithPast(
+            loss=loss, logits=logits, past_key_values=outputs.
+            past_key_values, hidden_states=outputs.hidden_states,
+            attentions=outputs.attentions)

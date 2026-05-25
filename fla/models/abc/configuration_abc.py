@@ -1,10 +1,9 @@
-
 import warnings
 
-from transformers.configuration_utils import PretrainedConfig
+import paddleformers
 
 
-class ABCConfig(PretrainedConfig):
+class ABCConfig(paddleformers.transformers.PretrainedConfig):
 
     model_type = 'abc'
     keys_to_ignore_at_inference = ['past_key_values']

@@ -1,5 +1,4 @@
-
-from transformers import AutoConfig, AutoModel, AutoModelForCausalLM
+import paddleformers
 
 from fla.models.forgetting_transformer.configuration_forgetting_transformer import ForgettingTransformerConfig
 from fla.models.forgetting_transformer.modeling_forgetting_transformer import (
@@ -7,9 +6,12 @@ from fla.models.forgetting_transformer.modeling_forgetting_transformer import (
     ForgettingTransformerModel,
 )
 
-AutoConfig.register(ForgettingTransformerConfig.model_type, ForgettingTransformerConfig, exist_ok=True)
-AutoModel.register(ForgettingTransformerConfig, ForgettingTransformerModel, exist_ok=True)
-AutoModelForCausalLM.register(ForgettingTransformerConfig, ForgettingTransformerForCausalLM, exist_ok=True)
+paddleformers.transformers.AutoConfig.register(ForgettingTransformerConfig.model_type,
+                                               ForgettingTransformerConfig, exist_ok=True)
+paddleformers.transformers.AutoModel.register(ForgettingTransformerConfig,
+                                              ForgettingTransformerModel, exist_ok=True)
+paddleformers.transformers.AutoModelForCausalLM.register(ForgettingTransformerConfig,
+                                                         ForgettingTransformerForCausalLM, exist_ok=True)
 
 
 __all__ = ['ForgettingTransformerConfig', 'ForgettingTransformerForCausalLM', 'ForgettingTransformerModel']

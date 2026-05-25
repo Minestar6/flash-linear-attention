@@ -1,3 +1,7 @@
+from __future__ import annotations
+
+import logging
+
 # Copyright 2024 state-spaces/mamba2 org and HuggingFace Inc. team.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -11,18 +15,25 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
 import math
 
+import paddle
+import paddleformers
 import torch
 from torch import nn
-from torch.distributed._tensor.placement_types import Placement, Replicate
-from torch.distributed.device_mesh import DeviceMesh
-from torch.distributed.tensor import DTensor
-from transformers.modeling_outputs import BaseModelOutputWithPast, CausalLMOutputWithPast
-from transformers.modeling_utils import PreTrainedModel
-from transformers.utils import logging
-from transformers.utils.deprecation import deprecate_kwarg
+
+from ...paddle_utils import *
+
+try:
+    from torch.distributed._tensor.placement_types import Placement, Replicate
+    from torch.distributed.device_mesh import DeviceMesh
+    from torch.distributed.tensor import DTensor
+except (ImportError, AttributeError):
+    Placement = None
+    Replicate = None
+    DeviceMesh = None
+    DTensor = None
+from paddleformers.transformers.model_outputs import BaseModelOutputWithPast, CausalLMOutputWithPast
 
 from fla.layers.mamba2 import Mamba2
 from fla.models.mamba2.configuration_mamba2 import Mamba2Config
@@ -34,9 +45,7 @@ try:
     from transformers.modeling_layers import GradientCheckpointingLayer
 except ImportError:
     from fla.models.modeling_layers import GradientCheckpointingLayer
-
-
-logger = logging.get_logger(__name__)
+logger = logging.getLogger(name=__name__)
 
 
 def tensor_to_dtensor(
@@ -46,16 +55,15 @@ def tensor_to_dtensor(
     desired_placement: Placement | list[Placement] | None = None,
     run_check: bool = False,
 ):
-    if isinstance(tensor, DTensor):
+    if DTensor is not None and isinstance(tensor, DTensor):
         return tensor
-
-    if isinstance(current_placement, Placement):
+    if Placement is not None and isinstance(current_placement, Placement):
         current_placement = [current_placement]
 
     dtensor = DTensor.from_local(tensor, device_mesh=device_mesh, run_check=run_check, placements=current_placement)
 
     if desired_placement is not None:
-        if isinstance(desired_placement, Placement):
+        if Placement is not None and isinstance(desired_placement, Placement):
             desired_placement = [desired_placement]
 
         dtensor = dtensor.redistribute(device_mesh=device_mesh, placements=desired_placement, async_op=True)
@@ -71,26 +79,17 @@ class Mamba2Block(GradientCheckpointingLayer):
         self.layer_idx = layer_idx
         self.residual_in_fp32 = config.residual_in_fp32
         self.norm = RMSNorm(config.hidden_size, eps=config.norm_eps, dtype=torch.float32)
-        self.mixer = Mamba2(
-            num_heads=config.num_heads,
-            head_dim=config.head_dim,
-            hidden_size=config.hidden_size,
-            state_size=config.state_size,
-            expand=config.expand,
-            n_groups=config.n_groups,
-            conv_kernel=config.conv_kernel,
-            use_conv_bias=config.use_conv_bias,
-            hidden_act=config.hidden_act,
-            rms_norm=config.rms_norm,
-            chunk_size=config.chunk_size,
-            time_step_rank=config.time_step_rank,
-            time_step_limit=config.time_step_limit,
-            time_step_min=config.time_step_min,
-            time_step_max=config.time_step_max,
-            use_bias=config.use_bias,
-            norm_eps=config.norm_eps,
-            layer_idx=layer_idx,
-        )
+        self.mixer = Mamba2(num_heads=config.num_heads, head_dim=config.
+                            head_dim, hidden_size=config.hidden_size, state_size=config.
+                            state_size, expand=config.expand, n_groups=config.n_groups,
+                            conv_kernel=config.conv_kernel, conv_init=config.conv_init,
+                            use_conv_bias=config.use_conv_bias, hidden_act=config.
+                            hidden_act, A_init_range=config.A_init_range, D_has_hdim=config
+                            .D_has_hdim, rmsnorm=config.rmsnorm, norm_before_gate=config.
+                            norm_before_gate, chunk_size=config.chunk_size, dt_limit=config
+                            .dt_limit, dt_min=config.dt_min, dt_max=config.dt_max,
+                            dt_init_floor=config.dt_init_floor, use_bias=config.use_bias,
+                            norm_eps=config.norm_eps, layer_idx=layer_idx)
 
     def forward(
         self,
@@ -120,7 +119,7 @@ class Mamba2Block(GradientCheckpointingLayer):
         return hidden_states, attentions, past_key_values
 
 
-class Mamba2PreTrainedModel(PreTrainedModel):
+class Mamba2PreTrainedModel(paddleformers.transformers.PretrainedModel):
     """
     An abstract class to handle weights initialization and a simple interface for downloading and loading pretrained
     models.
@@ -182,8 +181,7 @@ class Mamba2PreTrainedModel(PreTrainedModel):
 
                 module.dt_bias.copy_(inv_dt)
             module.dt_bias._no_reinit = True
-
-        elif isinstance(module, (nn.Linear, nn.Conv1d)):
+        elif isinstance(module, (paddle.compat.nn.Linear, nn.Conv1d)):
             # Slightly different from the TF version which uses truncated_normal for initialization
             # cf https://github.com/pytorch/pytorch/pull/5617
             nn.init.normal_(module.weight, mean=0.0, std=self.config.initializer_range)
@@ -301,13 +299,9 @@ class Mamba2Model(Mamba2PreTrainedModel):
 
         if not return_dict:
             return tuple(i for i in [hidden_states, past_key_values, all_hidden_states, all_attns] if i is not None)
-
-        return BaseModelOutputWithPast(
-            last_hidden_state=hidden_states,
-            past_key_values=past_key_values,
-            hidden_states=all_hidden_states,
-            attentions=all_attns,
-        )
+        return (paddleformers.transformers.model_outputs.
+                BaseModelOutputWithPast(last_hidden_state=hidden_states,
+                                        past_key_values=past_key_values, hidden_states=all_hidden_states, attentions=all_attns))
 
 
 class Mamba2ForCausalLM(Mamba2PreTrainedModel, FLAGenerationMixin):
@@ -316,7 +310,8 @@ class Mamba2ForCausalLM(Mamba2PreTrainedModel, FLAGenerationMixin):
     def __init__(self, config):
         super().__init__(config)
         self.backbone = Mamba2Model(config)
-        self.lm_head = nn.Linear(config.hidden_size, config.vocab_size, bias=False)
+        self.lm_head = paddle.compat.nn.Linear(config.hidden_size, config.
+                                               vocab_size, bias=False)
         self.criterion = None
 
         # Initialize weights and apply final processing
@@ -334,7 +329,6 @@ class Mamba2ForCausalLM(Mamba2PreTrainedModel, FLAGenerationMixin):
     def set_input_embeddings(self, new_embeddings):
         return self.backbone.set_input_embeddings(new_embeddings)
 
-    @deprecate_kwarg("num_logits_to_keep", version="4.50", new_name="logits_to_keep")
     def forward(
         self,
         input_ids: torch.LongTensor | None = None,
@@ -374,7 +368,7 @@ class Mamba2ForCausalLM(Mamba2PreTrainedModel, FLAGenerationMixin):
                 elif self.config.fuse_cross_entropy:
                     criterion = FusedCrossEntropyLoss(inplace_backward=True)
                 else:
-                    criterion = nn.CrossEntropyLoss()
+                    criterion = paddle.nn.CrossEntropyLoss()
             else:
                 criterion = self.criterion
             labels = labels.to(hidden_states.device)
@@ -382,17 +376,13 @@ class Mamba2ForCausalLM(Mamba2PreTrainedModel, FLAGenerationMixin):
             if self.config.fuse_linear_cross_entropy:
                 loss = criterion(hidden_states, labels, self.lm_head.weight, self.lm_head.bias)
             else:
-                loss = criterion(logits.view(labels.numel(), -1), labels.view(-1))
+                loss = criterion(logits.view(labels.size, -1), labels.view(-1))
                 loss = l2_warp(loss, logits) if self.config.use_l2warp else loss
 
         if not return_dict:
             output = (logits,) + outputs[1:]
             return (loss,) + output if loss is not None else output
-
-        return CausalLMOutputWithPast(
-            loss=loss,
-            logits=logits,
-            past_key_values=outputs.past_key_values,
-            hidden_states=outputs.hidden_states,
-            attentions=outputs.attentions,
-        )
+        return paddleformers.transformers.model_outputs.CausalLMOutputWithPast(
+            loss=loss, logits=logits, past_key_values=outputs.
+            past_key_values, hidden_states=outputs.hidden_states,
+            attentions=outputs.attentions)

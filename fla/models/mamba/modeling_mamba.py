@@ -1,3 +1,5 @@
+import logging
+
 # Copyright 2024 state-spaces/mamba org and HuggingFace Inc. team.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -11,15 +13,13 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
 import math
 
+import paddle
+import paddleformers
 import torch
+from paddleformers.transformers.model_outputs import BaseModelOutputWithPast, CausalLMOutputWithPast
 from torch import nn
-from transformers.modeling_outputs import BaseModelOutputWithPast, CausalLMOutputWithPast
-from transformers.modeling_utils import PreTrainedModel
-from transformers.utils import logging
-from transformers.utils.deprecation import deprecate_kwarg
 
 from fla.layers.mamba import Mamba
 from fla.models.mamba.configuration_mamba import MambaConfig
@@ -27,12 +27,13 @@ from fla.models.utils import Cache, FLAGenerationMixin
 from fla.modules import FusedCrossEntropyLoss, FusedLinearCrossEntropyLoss, RMSNorm
 from fla.modules.l2warp import l2_warp
 
+from ...paddle_utils import *
+
 try:
     from transformers.modeling_layers import GradientCheckpointingLayer
 except ImportError:
     from fla.models.modeling_layers import GradientCheckpointingLayer
-
-logger = logging.get_logger(__name__)
+logger = logging.getLogger(name=__name__)
 
 
 class MambaBlock(GradientCheckpointingLayer):
@@ -43,15 +44,10 @@ class MambaBlock(GradientCheckpointingLayer):
         self.layer_idx = layer_idx
         self.residual_in_fp32 = config.residual_in_fp32
         self.norm = RMSNorm(config.hidden_size, eps=config.norm_eps, dtype=torch.float32)
-        self.mixer = Mamba(
-            hidden_size=config.hidden_size,
-            state_size=config.state_size,
-            conv_kernel=config.conv_kernel,
-            intermediate_size=config.intermediate_size,
-            time_step_rank=config.time_step_rank,
-            use_bias=config.use_bias,
-            layer_idx=layer_idx,
-        )
+        self.mixer = Mamba(hidden_size=config.hidden_size, state_size=config.state_size, conv_kernel=config.conv_kernel,
+                           use_conv_bias=config.use_conv_bias, intermediate_size=config.
+                           intermediate_size, dt_rank=config.dt_rank, dt_min=config.dt_min,
+                           dt_max=config.dt_max, dt_init=config.dt_init_scheme, dt_scale=config.dt_scale, dt_init_floor=config.dt_init_floor, use_bias=config.use_bias, hidden_act=config.hidden_act, layer_idx=layer_idx)
 
     def forward(
         self,
@@ -81,7 +77,7 @@ class MambaBlock(GradientCheckpointingLayer):
         return hidden_states, attentions, past_key_values
 
 
-class MambaPreTrainedModel(PreTrainedModel):
+class MambaPreTrainedModel(paddleformers.transformers.PretrainedModel):
     """
     An abstract class to handle weights initialization and a simple interface for downloading and loading pretrained
     models.
@@ -95,7 +91,7 @@ class MambaPreTrainedModel(PreTrainedModel):
 
     def _init_weights(self, module):
         """Initialize the weights."""
-        if isinstance(module, nn.Linear):
+        if isinstance(module, paddle.compat.nn.Linear):
             nn.init.normal_(module.weight, mean=0.0, std=self.config.initializer_range)
             if module.bias is not None:
                 if not getattr(module.bias, "_no_reinit", False):
@@ -233,13 +229,9 @@ class MambaModel(MambaPreTrainedModel):
 
         if not return_dict:
             return tuple(i for i in [hidden_states, past_key_values, all_hidden_states, all_attns] if i is not None)
-
-        return BaseModelOutputWithPast(
-            last_hidden_state=hidden_states,
-            past_key_values=past_key_values,
-            hidden_states=all_hidden_states,
-            attentions=all_attns if all_attns else None,
-        )
+        return (paddleformers.transformers.model_outputs.
+                BaseModelOutputWithPast(last_hidden_state=hidden_states,
+                                        past_key_values=past_key_values, hidden_states=all_hidden_states, attentions=all_attns if all_attns else None))
 
 
 class MambaForCausalLM(MambaPreTrainedModel, FLAGenerationMixin):
@@ -249,7 +241,8 @@ class MambaForCausalLM(MambaPreTrainedModel, FLAGenerationMixin):
     def __init__(self, config):
         super().__init__(config)
         self.backbone = MambaModel(config)
-        self.lm_head = nn.Linear(config.hidden_size, config.vocab_size, bias=False)
+        self.lm_head = paddle.compat.nn.Linear(config.hidden_size, config.
+                                               vocab_size, bias=False)
         self.criterion = None
 
         # Initialize weights and apply final processing
@@ -267,7 +260,6 @@ class MambaForCausalLM(MambaPreTrainedModel, FLAGenerationMixin):
     def set_input_embeddings(self, new_embeddings):
         return self.backbone.set_input_embeddings(new_embeddings)
 
-    @deprecate_kwarg("num_logits_to_keep", version="4.50", new_name="logits_to_keep")
     def forward(
         self,
         input_ids: torch.LongTensor | None = None,
@@ -307,7 +299,7 @@ class MambaForCausalLM(MambaPreTrainedModel, FLAGenerationMixin):
                 elif self.config.fuse_cross_entropy:
                     criterion = FusedCrossEntropyLoss(inplace_backward=True)
                 else:
-                    criterion = nn.CrossEntropyLoss()
+                    criterion = paddle.nn.CrossEntropyLoss()
             else:
                 criterion = self.criterion
             labels = labels.to(hidden_states.device)
@@ -315,17 +307,13 @@ class MambaForCausalLM(MambaPreTrainedModel, FLAGenerationMixin):
             if self.config.fuse_linear_cross_entropy:
                 loss = criterion(hidden_states, labels, self.lm_head.weight, self.lm_head.bias)
             else:
-                loss = criterion(logits.view(labels.numel(), -1), labels.view(-1))
+                loss = criterion(logits.view(labels.size, -1), labels.view(-1))
                 loss = l2_warp(loss, logits) if self.config.use_l2warp else loss
 
         if not return_dict:
             output = (logits,) + outputs[1:]
             return (loss,) + output if loss is not None else output
-
-        return CausalLMOutputWithPast(
-            loss=loss,
-            logits=logits,
-            past_key_values=outputs.past_key_values,
-            hidden_states=outputs.hidden_states,
-            attentions=outputs.attentions,
-        )
+        return paddleformers.transformers.model_outputs.CausalLMOutputWithPast(
+            loss=loss, logits=logits, past_key_values=outputs.
+            past_key_values, hidden_states=outputs.hidden_states,
+            attentions=outputs.attentions)
