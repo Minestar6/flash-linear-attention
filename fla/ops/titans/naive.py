@@ -1,7 +1,5 @@
 import paddle
-
 import torch
-import torch.nn.functional as F
 
 from fla.ops.titans.log_impl import combine_params_log
 

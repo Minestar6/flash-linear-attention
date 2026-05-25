@@ -1,17 +1,19 @@
 import logging
-from ...paddle_utils import *
-import paddleformers
-import paddle
 import math
 
+import paddle
+import paddleformers
 import torch
-from torch import nn
 from paddleformers.transformers.model_outputs import BaseModelOutputWithPast, CausalLMOutputWithPast
+from torch import nn
 
 from fla.layers.log_linear_mamba2 import LogLinearMamba2
 from fla.models.log_linear_mamba2.configuration_log_linear_mamba2 import LogLinearMamba2Config
 from fla.models.utils import Cache, FLAGenerationMixin
 from fla.modules import FusedCrossEntropyLoss, FusedLinearCrossEntropyLoss, GatedMLP, RMSNorm
+
+from ...paddle_utils import *
+
 logger = logging.getLogger(name=__name__)
 
 
@@ -24,15 +26,12 @@ class LogLinearMamba2Block(nn.Module):
         self.layer_idx = layer_idx
         self.mixer_norm = RMSNorm(config.hidden_size, eps=config.norm_eps, dtype=torch.float32)
         self.mlp_norm = RMSNorm(config.hidden_size, eps=config.norm_eps, dtype=torch.float32)
-        self.mixer = LogLinearMamba2(num_heads=config.num_heads, head_dim=
-            config.head_dim, hidden_size=config.hidden_size, state_size=
-            config.state_size, expand=config.expand, n_groups=config.
-            n_groups, conv_kernel=config.conv_kernel, use_conv_bias=config.
-            use_conv_bias, hidden_act=config.hidden_act, rmsnorm=config.
-            rmsnorm, D_has_hdim=config.D_has_hdim, norm_before_gate=config.
-            norm_before_gate, chunk_size=config.chunk_size, dt_limit=config
-            .dt_limit, dt_min=config.dt_min, dt_max=config.dt_max, use_bias
-            =config.use_bias, norm_eps=config.norm_eps, layer_idx=layer_idx)
+        self.mixer = LogLinearMamba2(num_heads=config.num_heads, head_dim=config.head_dim, hidden_size=config.hidden_size, state_size=config.state_size, expand=config.expand, n_groups=config.
+                                     n_groups, conv_kernel=config.conv_kernel, use_conv_bias=config.
+                                     use_conv_bias, hidden_act=config.hidden_act, rmsnorm=config.
+                                     rmsnorm, D_has_hdim=config.D_has_hdim, norm_before_gate=config.
+                                     norm_before_gate, chunk_size=config.chunk_size, dt_limit=config
+                                     .dt_limit, dt_min=config.dt_min, dt_max=config.dt_max, use_bias=config.use_bias, norm_eps=config.norm_eps, layer_idx=layer_idx)
         self.mlp = GatedMLP(
             hidden_size=config.hidden_size,
             hidden_ratio=4,
@@ -74,7 +73,7 @@ class LogLinearMamba2Block(nn.Module):
 
 
 class LogLinearMamba2PreTrainedModel(paddleformers.transformers.
-    PretrainedModel, FLAGenerationMixin):
+                                     PretrainedModel, FLAGenerationMixin):
     """
     An abstract class to handle weights initialization and a simple interface for downloading and loading pretrained
     models.
@@ -94,11 +93,11 @@ class LogLinearMamba2PreTrainedModel(paddleformers.transformers.
         """Initialize the weights."""
         if isinstance(module, LogLinearMamba2):
             if not getattr(module.A_log, '_is_hf_initialized', False):
-            # --- A_log ---
+                # --- A_log ---
                 A = torch.arange(1, module.num_heads + 1)
                 with torch.no_grad():
                     if not isinstance(module.A_log, torch.distributed.
-                        tensor.DTensor):
+                                      tensor.DTensor):
                         module.A_log.copy_(torch.log(A))
                     else:
                         logger.warning_once(
@@ -106,29 +105,29 @@ class LogLinearMamba2PreTrainedModel(paddleformers.transformers.
             module.A_log._no_weight_decay = True
             if not getattr(module.D, '_is_hf_initialized', False):
 
-            # --- D ---
+                # --- D ---
                 nn.init.ones_(module.D)
             module.D._no_weight_decay = True
             if self.config.conv_init is not None:
                 nn.init.uniform_(module.conv1d.weight, -self.config.
-                    conv_init, self.config.conv_init)
+                                 conv_init, self.config.conv_init)
                 module.conv1d.weight._no_reinit = True
             if not getattr(module.L, '_is_hf_initialized', False):
 
-            # --- L ---
+                # --- L ---
                 nn.init.ones_(module.L)
             module.L._no_weight_decay = True
             if not getattr(module.dt_bias, '_is_hf_initialized', False):
                 dt = torch.exp(torch.rand(self.config.num_heads) * (math.
-                    log(self.config.dt_max) - math.log(self.config.dt_min)) +
-                    math.log(self.config.dt_min)).clamp(min=self.config.
-                    dt_init_floor)
+                                                                    log(self.config.dt_max) - math.log(self.config.dt_min)) +
+                               math.log(self.config.dt_min)).clamp(min=self.config.
+                                                                   dt_init_floor)
 
             # Inverse of softplus: https://github.com/pytorch/pytorch/issues/72759
                 inv_dt = dt + torch.log(-torch.expm1(-dt))
                 with torch.no_grad():
                     if not isinstance(module.dt_bias, torch.distributed.
-                        tensor.DTensor):
+                                      tensor.DTensor):
                         module.dt_bias.copy_(inv_dt)
                     else:
                         logger.warning_once(
@@ -293,9 +292,8 @@ class LogLinearMamba2Model(LogLinearMamba2PreTrainedModel):
                 if i is not None
             )
         return (paddleformers.transformers.model_outputs.
-            BaseModelOutputWithPast(last_hidden_state=hidden_states,
-            past_key_values=past_key_values, hidden_states=
-            all_hidden_states, attentions=all_attns if all_attns else None))
+                BaseModelOutputWithPast(last_hidden_state=hidden_states,
+                                        past_key_values=past_key_values, hidden_states=all_hidden_states, attentions=all_attns if all_attns else None))
 
 
 class LogLinearMamba2ForCausalLM(LogLinearMamba2PreTrainedModel):
@@ -305,7 +303,7 @@ class LogLinearMamba2ForCausalLM(LogLinearMamba2PreTrainedModel):
         super().__init__(config)
         self.backbone = LogLinearMamba2Model(config)
         self.lm_head = paddle.compat.nn.Linear(config.hidden_size, config.
-            vocab_size, bias=False)
+                                               vocab_size, bias=False)
         self.criterion = None
 
         # Initialize weights and apply final processing
@@ -322,6 +320,7 @@ class LogLinearMamba2ForCausalLM(LogLinearMamba2PreTrainedModel):
 
     def set_input_embeddings(self, new_embeddings):
         return self.backbone.set_input_embeddings(new_embeddings)
+
     def forward(
         self,
         input_ids: torch.LongTensor | None = None,

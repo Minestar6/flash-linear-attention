@@ -3,10 +3,9 @@
 from __future__ import annotations
 
 import logging
-import paddle
-import paddleformers
 from typing import TYPE_CHECKING
 
+import paddle
 import torch
 import torch.nn as nn
 from einops import rearrange
@@ -115,15 +114,12 @@ class BitAttention(nn.Module):
             q, (k, v), indices_q, cu_seqlens, max_seq_lens = unpad_input(q, (k, v), attention_mask, q_len)
             cu_seqlens_q, cu_seqlens_k = cu_seqlens
             max_seqlen_q, max_seqlen_k = max_seq_lens
-            o = paddle.nn.functional.flash_attention.flash_attn_varlen_func(q, k, v, cu_seqlens_q=
-                cu_seqlens_q, cu_seqlens_k=cu_seqlens_k, max_seqlen_q=
-                max_seqlen_q, max_seqlen_k=max_seqlen_k, causal=True)[0]
+            o = paddle.nn.functional.flash_attention.flash_attn_varlen_func(
+                q, k, v, cu_seqlens_q=cu_seqlens_q, cu_seqlens_k=cu_seqlens_k, max_seqlen_q=max_seqlen_q, max_seqlen_k=max_seqlen_k, causal=True)[0]
             o = pad_input(o, indices_q, batch_size, q_len)
         elif cu_seqlens is not None:
             o = paddle.nn.functional.flash_attention.flash_attn_varlen_func(q.squeeze(0), k.squeeze(0
-                ), v.squeeze(0), cu_seqlens_q=cu_seqlens, cu_seqlens_k=
-                cu_seqlens, max_seqlen_q=max_seqlen, max_seqlen_k=
-                max_seqlen, causal=True)[0].unsqueeze(0)
+                                                                                                    ), v.squeeze(0), cu_seqlens_q=cu_seqlens, cu_seqlens_k=cu_seqlens, max_seqlen_q=max_seqlen, max_seqlen_k=max_seqlen, causal=True)[0].unsqueeze(0)
         else:
             o = paddle.nn.functional.flash_attention.flash_attention(q, k, v, causal=True)[0]
         o = o.reshape(batch_size, q_len, -1)

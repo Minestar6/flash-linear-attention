@@ -2,12 +2,13 @@ import paddleformers
 
 from fla.models.log_linear_mamba2.configuration_log_linear_mamba2 import LogLinearMamba2Config
 from fla.models.log_linear_mamba2.modeling_log_linear_mamba2 import LogLinearMamba2ForCausalLM, LogLinearMamba2Model
+
 paddleformers.transformers.AutoConfig.register(LogLinearMamba2Config.model_type,
-    LogLinearMamba2Config, exist_ok=True)
+                                               LogLinearMamba2Config, exist_ok=True)
 paddleformers.transformers.AutoModel.register(LogLinearMamba2Config, LogLinearMamba2Model,
-    exist_ok=True)
+                                              exist_ok=True)
 paddleformers.transformers.AutoModelForCausalLM.register(LogLinearMamba2Config,
-    LogLinearMamba2ForCausalLM, exist_ok=True)
+                                                         LogLinearMamba2ForCausalLM, exist_ok=True)
 
 
 __all__ = ['LogLinearMamba2Config', 'LogLinearMamba2ForCausalLM', 'LogLinearMamba2Model']

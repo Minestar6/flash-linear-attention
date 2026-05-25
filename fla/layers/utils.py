@@ -1,14 +1,12 @@
-from ..paddle_utils import *
 # Copyright (c) 2023-2025, Songlin Yang, Yu Zhang
-
 # Code is adapted from flash-attn.bert_padding.py
-
-
 import torch
 from einops import rearrange, repeat
 
 from fla.ops.utils.index import prepare_cu_seqlens_from_mask, prepare_lens_from_mask
 from fla.utils import tensor_cache
+
+from ..paddle_utils import *
 
 _LAYER_IDX_REQUIRED_MSG = "{cls} requires `layer_idx` when `past_key_values` is provided."
 
@@ -55,7 +53,7 @@ class IndexPutFirstAxis(torch.autograd.Function):
         assert indices.ndim == 1
         assert x.ndim >= 2
         y = torch.zeros([first_axis_dim, *x.shape[1:]], device=x.device,
-            dtype=x.dtype)
+                        dtype=x.dtype)
         # TODO [2022-03-04] For some reason torch.scatter is a bit faster than indexing.
         y[indices] = x
         # y.scatter_(0, repeat(indices, 'z -> z d', d=x.shape[1]), x)

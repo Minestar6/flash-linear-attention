@@ -2,12 +2,10 @@
 
 from __future__ import annotations
 
-import paddleformers
-import paddle
-
 import math
 from typing import TYPE_CHECKING
 
+import paddle
 import torch
 import torch.nn as nn
 from einops import rearrange, repeat
@@ -115,11 +113,11 @@ class KimiDeltaAttention(nn.Module):
             )
         assert mode in ["chunk", "fused_recurrent"], f"Not supported mode `{mode}`."
         self.q_proj = paddle.compat.nn.Linear(hidden_size, self.key_dim,
-            bias=False)
+                                              bias=False)
         self.k_proj = paddle.compat.nn.Linear(hidden_size, self.key_dim,
-            bias=False)
+                                              bias=False)
         self.v_proj = paddle.compat.nn.Linear(hidden_size, self.value_dim,
-            bias=False)
+                                              bias=False)
 
         if use_short_conv:
             self.q_conv1d = ShortConvolution(
@@ -141,10 +139,10 @@ class KimiDeltaAttention(nn.Module):
                 activation="silu",
             )
         self.f_proj = nn.Sequential(paddle.compat.nn.Linear(hidden_size,
-            self.head_v_dim, bias=False), paddle.compat.nn.Linear(self.
-            head_v_dim, self.key_dim, bias=False))
+                                                            self.head_v_dim, bias=False), paddle.compat.nn.Linear(self.
+                                                                                                                  head_v_dim, self.key_dim, bias=False))
         self.b_proj = paddle.compat.nn.Linear(hidden_size, self.num_heads,
-            bias=False)
+                                              bias=False)
 
         self.A_log = nn.Parameter(torch.log(torch.empty(self.num_heads, dtype=torch.float32).uniform_(1, 16)))
         self.A_log._no_weight_decay = True
@@ -155,11 +153,11 @@ class KimiDeltaAttention(nn.Module):
         self.dt_bias = nn.Parameter(inv_dt)
         self.dt_bias._no_weight_decay = True
         self.g_proj = nn.Sequential(paddle.compat.nn.Linear(hidden_size,
-            self.head_v_dim, bias=False), paddle.compat.nn.Linear(self.
-            head_v_dim, self.value_dim, bias=True))
+                                                            self.head_v_dim, bias=False), paddle.compat.nn.Linear(self.
+                                                                                                                  head_v_dim, self.value_dim, bias=True))
         self.o_norm = FusedRMSNormGated(self.head_v_dim, activation="sigmoid", eps=norm_eps)
         self.o_proj = paddle.compat.nn.Linear(self.value_dim, hidden_size,
-            bias=False)
+                                              bias=False)
 
     def forward(
         self,

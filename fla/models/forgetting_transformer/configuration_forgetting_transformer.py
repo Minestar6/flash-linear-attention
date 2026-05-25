@@ -1,6 +1,6 @@
-import paddleformers
-
 import warnings
+
+import paddleformers
 
 
 class ForgettingTransformerConfig(paddleformers.transformers.PretrainedConfig):

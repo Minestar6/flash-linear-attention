@@ -1,6 +1,6 @@
 import paddle
-# Copyright (c) 2023-2025, Songlin Yang, Yu Zhang
 
+# Copyright (c) 2023-2025, Songlin Yang, Yu Zhang
 import torch
 import triton
 import triton.language as tl

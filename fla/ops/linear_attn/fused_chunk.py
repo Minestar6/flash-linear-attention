@@ -5,6 +5,8 @@ import torch
 
 from fla.ops.linear_attn.utils import normalize_output
 from fla.ops.simple_gla import fused_chunk_simple_gla
+
+
 def fused_chunk_linear_attn(
     q: torch.Tensor,
     k: torch.Tensor,

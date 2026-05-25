@@ -1,6 +1,6 @@
-import paddle
 import math
 
+import paddle
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -140,7 +140,7 @@ class ImplicitLongConvolution(nn.Module):
         ), "d_emb must be odd and greater or equal to 3 (time, sine and cosine)"
         self.pos_emb = PositionalEmbedding(d_emb, max_len)
         self.mlp = nn.Sequential(paddle.compat.nn.Linear(d_emb, d_hidden),
-            torch.nn.ReLU(), paddle.compat.nn.Linear(d_hidden, hidden_size))
+                                 torch.nn.ReLU(), paddle.compat.nn.Linear(d_hidden, hidden_size))
 
     def filter(self, seq_len: int, *args, **kwargs):
         return self.mlp(self.pos_emb(seq_len)).transpose(1, 2)

@@ -2,11 +2,10 @@
 
 from __future__ import annotations
 
-import paddle
-
 import warnings
 from typing import TYPE_CHECKING
 
+import paddle
 import torch
 import torch.nn as nn
 from einops import rearrange
@@ -85,19 +84,19 @@ class ABCAttention(nn.Module):
                 "when creating this class.",
             )
         self.q_proj = paddle.compat.nn.Linear(self.hidden_size, self.
-            key_dim, bias=False)
+                                              key_dim, bias=False)
         self.k_proj = paddle.compat.nn.Linear(self.hidden_size, self.
-            key_dim, bias=False)
+                                              key_dim, bias=False)
         self.v_proj = paddle.compat.nn.Linear(self.hidden_size, self.
-            value_dim, bias=False)
+                                              value_dim, bias=False)
 
         if use_output_gate:
             self.g_proj = paddle.compat.nn.Linear(self.hidden_size, self.
-                value_dim, bias=False)
+                                                  value_dim, bias=False)
         self.s_proj = paddle.compat.nn.Linear(self.hidden_size, self.
-            num_heads * self.num_slots, bias=False)
+                                              num_heads * self.num_slots, bias=False)
         self.o_proj = paddle.compat.nn.Linear(self.value_dim, self.
-            hidden_size, bias=False)
+                                              hidden_size, bias=False)
 
         if use_short_conv:
             self.conv_size = conv_size

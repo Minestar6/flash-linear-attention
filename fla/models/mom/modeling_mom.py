@@ -1,14 +1,13 @@
 from __future__ import annotations
-import logging
-from ...paddle_utils import *
-import paddleformers
-import paddle
 
+import logging
 import math
 import warnings
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Optional
 
+import paddle
+import paddleformers
 import torch
 import torch.nn as nn
 from paddleformers.transformers.model_outputs import BaseModelOutputWithPast, CausalLMOutputWithPast
@@ -19,6 +18,8 @@ from fla.models.mom.configuration_mom import MomConfig
 from fla.models.utils import Cache, FLAGenerationMixin
 from fla.modules import FusedCrossEntropyLoss, FusedLinearCrossEntropyLoss, RMSNorm
 from fla.modules import GatedMLP as MomMLP
+
+from ...paddle_utils import *
 
 if TYPE_CHECKING:
     from paddleformers.transformers.processing_utils import Unpack
@@ -239,7 +240,7 @@ class MomPreTrainedModel(paddleformers.transformers.PretrainedModel):
 
 @dataclass
 class MomOutputWithPast(paddleformers.transformers.model_outputs.
-    BaseModelOutputWithPast):
+                        BaseModelOutputWithPast):
     router_logits: tuple[torch.FloatTensor, ...] | None = None
 
 
@@ -337,7 +338,7 @@ class MomModel(MomPreTrainedModel):
 
 @dataclass
 class MomCausalLMOutputWithPast(paddleformers.transformers.model_outputs.
-    CausalLMOutputWithPast):
+                                CausalLMOutputWithPast):
     aux_loss: torch.FloatTensor | None = None
     router_logits: tuple[torch.FloatTensor, ...] | None = None
 
@@ -351,7 +352,7 @@ class MomForCausalLM(MomPreTrainedModel, FLAGenerationMixin):
         self.model = MomModel(config)
         self.vocab_size = config.vocab_size
         self.lm_head = paddle.compat.nn.Linear(config.hidden_size, config.
-            vocab_size, bias=False)
+                                               vocab_size, bias=False)
         self.num_memories = config.num_memories
         self.topk = config.topk
         self.aux_loss_scale = config.aux_loss_scale

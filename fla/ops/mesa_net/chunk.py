@@ -239,6 +239,8 @@ class ChunkMesaNetFunction(torch.autograd.Function):
             dq = l2norm_bwd(q, q_rstd, dq)
             dk = l2norm_bwd(k, k_rstd, dk)
         return dq, dk, dv.to(v), dg.to(g), dbeta.to(beta), dlamb.to(lamb), None, None, None, dh0_kk, dh0_kv, None, None
+
+
 def chunk_mesa_net(
     q: torch.Tensor,
     k: torch.Tensor,

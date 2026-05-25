@@ -429,6 +429,8 @@ class FusedRecurrentFunction(torch.autograd.Function):
             dq = l2norm_bwd(q, q_rstd, dq)
             dk = l2norm_bwd(k, k_rstd, dk)
         return dq.to(q), dk.to(k), dv.to(v), db.to(beta), None, dh0, None, None, None
+
+
 def fused_recurrent_delta_rule(
     q: torch.Tensor,
     k: torch.Tensor,

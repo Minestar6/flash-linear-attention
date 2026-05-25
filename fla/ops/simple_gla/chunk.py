@@ -196,6 +196,8 @@ class ChunkSimpleGLAFunction(torch.autograd.Function):
         else:
             dg = None
         return dq.to(q), dk.to(k), dv.to(v), dg, None, None, dh0, None, None, None
+
+
 def chunk_simple_gla(
     q: torch.Tensor,
     k: torch.Tensor,

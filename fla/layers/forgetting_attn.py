@@ -3,11 +3,9 @@
 from __future__ import annotations
 
 import logging
-import paddleformers
-import paddle
-
 from typing import TYPE_CHECKING
 
+import paddle
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -54,19 +52,19 @@ class ForgettingAttention(nn.Module):
         self.use_output_gate = use_output_gate
         self.layer_idx = layer_idx
         self.q_proj = paddle.compat.nn.Linear(self.hidden_size, self.
-            hidden_size, bias=self.qkv_bias)
+                                              hidden_size, bias=self.qkv_bias)
         self.k_proj = paddle.compat.nn.Linear(self.hidden_size, self.kv_dim,
-            bias=self.qkv_bias)
+                                              bias=self.qkv_bias)
         self.v_proj = paddle.compat.nn.Linear(self.hidden_size, self.kv_dim,
-            bias=self.qkv_bias)
+                                              bias=self.qkv_bias)
         self.f_proj = paddle.compat.nn.Linear(self.hidden_size, self.
-            num_heads, bias=True)
+                                              num_heads, bias=True)
 
         if use_output_gate:
             self.g_proj = paddle.compat.nn.Linear(self.hidden_size, self.
-                hidden_size, bias=False)
+                                                  hidden_size, bias=False)
         self.o_proj = paddle.compat.nn.Linear(self.hidden_size, self.
-            hidden_size, bias=False)
+                                              hidden_size, bias=False)
 
         if qk_norm:
             self.q_norm = GroupNorm(

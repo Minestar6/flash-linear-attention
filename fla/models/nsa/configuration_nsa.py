@@ -1,6 +1,6 @@
-import paddleformers
-
 import warnings
+
+import paddleformers
 
 
 class NSAConfig(paddleformers.transformers.PretrainedConfig):

@@ -4,11 +4,9 @@
 
 from __future__ import annotations
 
-import paddleformers
-import paddle
-
 from typing import TYPE_CHECKING
 
+import paddle
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -70,11 +68,11 @@ class HGRN2Attention(nn.Module):
         self.head_f_dim = self.expand_ratio
         self.head_i_dim = self.hidden_size // num_heads
         self.q_proj = paddle.compat.nn.Linear(hidden_size, self.forget_dim,
-            bias=False)
+                                              bias=False)
         self.f_proj = paddle.compat.nn.Linear(hidden_size, self.forget_dim,
-            bias=False)
+                                              bias=False)
         self.i_proj = paddle.compat.nn.Linear(hidden_size, self.input_dim,
-            bias=False)
+                                              bias=False)
 
         if use_short_conv:
             self.conv_size = conv_size
@@ -100,7 +98,7 @@ class HGRN2Attention(nn.Module):
         self.g_norm = RMSNorm(hidden_size=self.hidden_size, elementwise_affine=elementwise_affine,
                               eps=norm_eps, dtype=torch.float32)
         self.o_proj = paddle.compat.nn.Linear(self.input_dim, hidden_size,
-            bias=False)
+                                              bias=False)
 
     def forward(
         self,
@@ -162,7 +160,7 @@ class HGRN2Attention(nn.Module):
         # the lower bound for the first layer is zero
         if lower_bound is not None and self.layer_idx > 0:
             g = paddle.logaddexp(x=lower_bound.log(), y=torch.log1p(-
-                lower_bound) + g)
+                                                                    lower_bound) + g)
         k = 1 - g.exp()
 
         q, k, g = map(lambda x: rearrange(x, '... (h d) -> ... h d', d=self.head_f_dim), (q, k.to(i), g))

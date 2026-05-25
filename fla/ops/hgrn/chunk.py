@@ -261,6 +261,7 @@ class ChunkHGRNFunction(torch.autograd.Function):
         )
 
         dg = torch.empty_like(g, dtype=torch.float)
+
         def grid(meta):
             return triton.cdiv(D, meta['BD']), B
         chunk_hgrn_bwd_kernel_o[grid](
@@ -273,6 +274,8 @@ class ChunkHGRNFunction(torch.autograd.Function):
             dg[:, 0] = (initial_state * dx[:, 0] * g[:, 0].float().exp()).to(dg.dtype)
 
         return dx.to(o.dtype), dg, None, None
+
+
 def chunk_hgrn(
     x: torch.Tensor,
     g: torch.Tensor,

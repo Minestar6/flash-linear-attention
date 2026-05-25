@@ -1,15 +1,14 @@
 from __future__ import annotations
-import logging
-from ...paddle_utils import *
-import paddleformers
-import paddle
 
+import logging
 import math
 from typing import TYPE_CHECKING
 
+import paddle
+import paddleformers
 import torch
-from torch import nn
 from paddleformers.transformers.model_outputs import BaseModelOutputWithPast, CausalLMOutputWithPast
+from torch import nn
 
 from fla.layers.attn import Attention
 from fla.layers.mamba import Mamba
@@ -18,6 +17,8 @@ from fla.models.utils import Cache, FLAGenerationMixin
 from fla.modules import FusedCrossEntropyLoss, FusedLinearCrossEntropyLoss, RMSNorm
 from fla.modules import GatedMLP as SambaMLP
 from fla.modules.l2warp import l2_warp
+
+from ...paddle_utils import *
 
 if TYPE_CHECKING:
     from paddleformers.transformers.processing_utils import Unpack
@@ -51,10 +52,9 @@ class SambaBlock(GradientCheckpointingLayer):
                 layer_idx=layer_idx,
             )
         else:
-            self.mixer = Mamba(hidden_size=config.hidden_size, state_size=
-                config.state_size, conv_kernel=config.conv_kernel,
-                intermediate_size=config.intermediate_size, dt_rank=config.
-                time_step_rank, use_bias=config.use_bias, layer_idx=layer_idx)
+            self.mixer = Mamba(hidden_size=config.hidden_size, state_size=config.state_size, conv_kernel=config.conv_kernel,
+                               intermediate_size=config.intermediate_size, dt_rank=config.
+                               time_step_rank, use_bias=config.use_bias, layer_idx=layer_idx)
         self.mlp_norm = RMSNorm(
             config.hidden_size, eps=config.norm_eps)
         self.mlp = SambaMLP(
@@ -232,9 +232,8 @@ class SambaModel(SambaPreTrainedModel):
         if not return_dict:
             return tuple(i for i in [hidden_states, past_key_values, all_hidden_states, all_attns] if i is not None)
         return (paddleformers.transformers.model_outputs.
-            BaseModelOutputWithPast(last_hidden_state=hidden_states,
-            past_key_values=past_key_values, hidden_states=
-            all_hidden_states, attentions=all_attns if all_attns else None))
+                BaseModelOutputWithPast(last_hidden_state=hidden_states,
+                                        past_key_values=past_key_values, hidden_states=all_hidden_states, attentions=all_attns if all_attns else None))
 
 
 class SambaForCausalLM(SambaPreTrainedModel, FLAGenerationMixin):
@@ -245,7 +244,7 @@ class SambaForCausalLM(SambaPreTrainedModel, FLAGenerationMixin):
         super().__init__(config)
         self.backbone = SambaModel(config)
         self.lm_head = paddle.compat.nn.Linear(config.hidden_size, config.
-            vocab_size, bias=False)
+                                               vocab_size, bias=False)
         self.criterion = None
 
         # Initialize weights and apply final processing
@@ -262,6 +261,7 @@ class SambaForCausalLM(SambaPreTrainedModel, FLAGenerationMixin):
 
     def set_input_embeddings(self, new_embeddings):
         return self.backbone.set_input_embeddings(new_embeddings)
+
     def forward(
         self,
         input_ids: torch.LongTensor | None = None,

@@ -1,8 +1,7 @@
 import paddle
-# Copyright (c) 2023-2025, Songlin Yang, Yu Zhang
 
+# Copyright (c) 2023-2025, Songlin Yang, Yu Zhang
 import torch
-import torch.nn.functional as F
 from einops import rearrange, repeat
 
 
@@ -40,7 +39,6 @@ def naive_forgetting_attn(
     ref = ref + rearrange(gc, "b t h -> b h t 1") - rearrange(gc, "b t h -> b h 1 t")
     ref = ref.masked_fill(~mask.unsqueeze(0).unsqueeze(0), -float('inf'))
     ref = torch.einsum('bhqk,bkhd->bqhd', paddle.compat.nn.functional.
-        softmax(ref, dim=-1), repeat(v, 'b t h d -> b t (h g) d', g=
-        G).float())
+                       softmax(ref, dim=-1), repeat(v, 'b t h d -> b t (h g) d', g=G).float())
 
     return ref

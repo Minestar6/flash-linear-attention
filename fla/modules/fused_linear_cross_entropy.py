@@ -1,14 +1,11 @@
-import paddle
 # Copyright (c) 2023-2025, Songlin Yang, Yu Zhang
-
 # Code adapted from
 # https://github.com/linkedin/Liger-Kernel/blob/main/src/liger_kernel/ops/fused_linear_cross_entropy.py
-
 from functools import partial
 
+import paddle
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 import triton
 import triton.language as tl
 
@@ -18,9 +15,8 @@ from fla.utils import IS_AMD, input_guard
 
 try:
     from torch.distributed import DeviceMesh
-    from torch.distributed.tensor import Replicate, Shard, distribute_module
+    from torch.distributed.tensor import DTensor, Replicate, Shard, distribute_module
     from torch.distributed.tensor.parallel import ParallelStyle
-    from torch.distributed.tensor import DTensor
 except (ImportError, AttributeError):
     DeviceMesh = None
     Replicate = None
@@ -533,6 +529,7 @@ class FusedLinearCrossEntropyLoss(nn.Module):
         self.reduction = reduction
         self.use_l2warp = use_l2warp
         self.l2_penalty_factor = l2_penalty_factor
+
     def forward(
         self,
         x: torch.Tensor,

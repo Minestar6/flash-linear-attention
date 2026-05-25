@@ -1,13 +1,12 @@
 from __future__ import annotations
-import logging
-from ...paddle_utils import *
-import paddleformers
-import paddle
 
+import logging
 import math
 import warnings
 from typing import TYPE_CHECKING, Optional
 
+import paddle
+import paddleformers
 import torch
 import torch.nn as nn
 from paddleformers.transformers.model_outputs import BaseModelOutputWithPast, CausalLMOutputWithPast
@@ -20,6 +19,8 @@ from fla.modules import FusedCrossEntropyLoss, FusedLinearCrossEntropyLoss, Laye
 from fla.modules.activations import ACT2FN
 from fla.modules.l2warp import l2_warp
 from fla.modules.token_shift import token_shift
+
+from ...paddle_utils import *
 
 if TYPE_CHECKING:
     from paddleformers.transformers.processing_utils import Unpack
@@ -58,9 +59,9 @@ class RWKV7FeedForward(nn.Module):
 
         self.x_k = nn.Parameter(torch.zeros(hidden_size))
         self.key = paddle.compat.nn.Linear(hidden_size, intermediate_size,
-            bias=False)
+                                           bias=False)
         self.value = paddle.compat.nn.Linear(intermediate_size, hidden_size,
-            bias=False)
+                                             bias=False)
         self.act_fn = ACT2FN[hidden_act]
 
         self.layer_idx = layer_idx
@@ -107,7 +108,7 @@ class RWKV7FeedForward(nn.Module):
             # no need to update the offset twice
             state.update(ffn_state=ffn_state, layer_idx=self.layer_idx, offset=0)
         return self.value(self.act_fn(self.key(paddle.add(x, 1 * delta *
-            self.x_k)))), state
+                                                          self.x_k)))), state
 
 
 class RWKV7Block(GradientCheckpointingLayer):
@@ -237,19 +238,19 @@ class RWKV7PreTrainedModel(paddleformers.transformers.PretrainedModel):
                 scale = -0.0001
                 nn.init.uniform_(module.weight, a=scale, b=-scale)
         elif isinstance(module, paddle.compat.nn.Linear) and hasattr(self,
-            'lm_head') and module is self.lm_head:
+                                                                     'lm_head') and module is self.lm_head:
             if not getattr(module.weight, '_is_hf_initialized', False):
-            # https://github.com/BlinkDL/RWKV-LM/blob/main/RWKV-v7/train_temp/src/model.py#L403
+                # https://github.com/BlinkDL/RWKV-LM/blob/main/RWKV-v7/train_temp/src/model.py#L403
                 if self.config.vocab_size > self.config.hidden_size:
                     scale = 0.5 * math.sqrt(self.config.vocab_size / self.
-                        config.hidden_size)
+                                            config.hidden_size)
                 else:
                     scale = 0.5
                 original_dtype = module.weight.dtype
                 module.weight.data = nn.init.orthogonal_(module.weight.data
-                    .to(torch.float32), gain=scale).to(original_dtype)
+                                                         .to(torch.float32), gain=scale).to(original_dtype)
         elif isinstance(module, (paddle.compat.nn.Linear, nn.Conv1d)
-            ) and getattr(module, '_in_rwkv_module', False) is False:
+                        ) and getattr(module, '_in_rwkv_module', False) is False:
             # Slightly different from the TF version which uses truncated_normal for initialization
             # cf https://github.com/pytorch/pytorch/pull/5617
             nn.init.normal_(module.weight, mean=0.0, std=self.config.initializer_range)
@@ -258,7 +259,7 @@ class RWKV7PreTrainedModel(paddleformers.transformers.PretrainedModel):
         elif isinstance(module, nn.Parameter):
             nn.init.normal_(module, mean=0.0, std=self.config.initializer_range)
         elif hasattr(module, 'reset_parameters') and getattr(module,
-            '_in_rwkv_module', False) is False:
+                                                             '_in_rwkv_module', False) is False:
             module.reset_parameters()
 
         if rescale_prenorm_residual:
@@ -423,9 +424,8 @@ class RWKV7Model(RWKV7PreTrainedModel):
         if not return_dict:
             return tuple(i for i in [hidden_states, past_key_values, all_hidden_states, all_attns] if i is not None)
         return (paddleformers.transformers.model_outputs.
-            BaseModelOutputWithPast(last_hidden_state=hidden_states,
-            past_key_values=past_key_values, hidden_states=
-            all_hidden_states, attentions=all_attns))
+                BaseModelOutputWithPast(last_hidden_state=hidden_states,
+                                        past_key_values=past_key_values, hidden_states=all_hidden_states, attentions=all_attns))
 
 
 class RWKV7ForCausalLM(RWKV7PreTrainedModel, FLAGenerationMixin):
@@ -437,7 +437,7 @@ class RWKV7ForCausalLM(RWKV7PreTrainedModel, FLAGenerationMixin):
         self.model = RWKV7Model(config)
         self.vocab_size = config.vocab_size
         self.lm_head = paddle.compat.nn.Linear(config.hidden_size, config.
-            vocab_size, bias=False)
+                                               vocab_size, bias=False)
         self.criterion = None
 
         # Initialize weights and apply final processing
@@ -475,6 +475,7 @@ class RWKV7ForCausalLM(RWKV7PreTrainedModel, FLAGenerationMixin):
                 )
             else:
                 raise exception
+
     def forward(
         self,
         input_ids: torch.LongTensor = None,
@@ -534,7 +535,7 @@ class RWKV7ForCausalLM(RWKV7PreTrainedModel, FLAGenerationMixin):
                 loss = criterion(hidden_states, shift_labels, self.lm_head.weight, self.lm_head.bias)
             else:
                 loss = criterion(logits.view(shift_labels.size, -1),
-                    shift_labels.view(-1))
+                                 shift_labels.view(-1))
                 loss = l2_warp(loss, logits) if self.config.use_l2warp else loss
 
         if not return_dict:

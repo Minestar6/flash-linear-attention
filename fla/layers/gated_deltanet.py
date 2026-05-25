@@ -2,13 +2,11 @@
 
 from __future__ import annotations
 
-import paddleformers
-import paddle
-
 import math
 import warnings
 from typing import TYPE_CHECKING
 
+import paddle
 import torch
 import torch.nn as nn
 from einops import rearrange, repeat
@@ -22,8 +20,12 @@ if TYPE_CHECKING:
     from transformers.processing_utils import Unpack
 
     from fla.models.utils import Cache
+
+
 def elu_p1(x):
     return (paddle.nn.functional.elu(x=x, alpha=1.0) + 1.0).to(x)
+
+
 def sum_norm(x):
     return (x / x.sum(-1, keepdim=True)).to(x)
 
@@ -139,15 +141,15 @@ class GatedDeltaNet(nn.Module):
             )
         assert mode in ['chunk', 'fused_recurrent'], f"Not supported mode `{mode}`."
         self.q_proj = paddle.compat.nn.Linear(hidden_size, self.key_dim,
-            bias=False)
+                                              bias=False)
         self.k_proj = paddle.compat.nn.Linear(hidden_size, self.key_dim,
-            bias=False)
+                                              bias=False)
         self.v_proj = paddle.compat.nn.Linear(hidden_size, self.value_dim,
-            bias=False)
+                                              bias=False)
         self.a_proj = paddle.compat.nn.Linear(hidden_size, self.num_v_heads,
-            bias=False)
+                                              bias=False)
         self.b_proj = paddle.compat.nn.Linear(hidden_size, self.num_v_heads,
-            bias=False)
+                                              bias=False)
 
         A = torch.empty(self.num_v_heads, dtype=torch.float32).uniform_(0, 16)
         self.A_log = nn.Parameter(torch.log(A))
@@ -195,12 +197,12 @@ class GatedDeltaNet(nn.Module):
             )
         if use_gate:
             self.g_proj = paddle.compat.nn.Linear(hidden_size, self.
-                value_dim, bias=False)
+                                                  value_dim, bias=False)
             self.o_norm = FusedRMSNormGated(self.head_v_dim, eps=norm_eps)
         else:
             self.o_norm = RMSNorm(self.head_v_dim, eps=norm_eps, dtype=torch.float32)
         self.o_proj = paddle.compat.nn.Linear(self.value_dim, hidden_size,
-            bias=False)
+                                              bias=False)
 
     def forward(
         self,

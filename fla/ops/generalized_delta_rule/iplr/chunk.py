@@ -421,6 +421,8 @@ class ChunkGeneralizedIPLRDeltaRuleFunction(torch.autograd.Function):
             "Backward pass for ChunkGeneralizedIPLRDeltaRuleFunction is not implemented yet. "
             "Stay tuned!",
         )
+
+
 def chunk_iplr_delta_rule(
     q: torch.Tensor,
     k: torch.Tensor,

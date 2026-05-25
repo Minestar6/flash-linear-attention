@@ -1,8 +1,10 @@
 
+
 import paddle
-from typing import Optional
+
 ############################## 相关utils函数，如下 ##############################
 ############################ PaConvert 自动生成的代码 ###########################
+
 
 def _Tensor_max(self, *args, **kwargs):
     if "other" in kwargs:
@@ -21,7 +23,8 @@ def _Tensor_max(self, *args, **kwargs):
 
     return ret
 
-setattr(paddle.Tensor, "_max", _Tensor_max)
+
+paddle.Tensor._max = _Tensor_max
 
 
 def _convert_head_mask_to_5d(head_mask, num_hidden_layers):
@@ -34,9 +37,10 @@ def _convert_head_mask_to_5d(head_mask, num_hidden_layers):
     head_mask = head_mask.to(dtype=paddle.get_default_dtype())  # switch to float if need + fp16 compatibility
     return head_mask
 
+
 def _get_head_mask(
     self,
-    head_mask: Optional[paddle.Tensor],
+    head_mask: paddle.Tensor | None,
     num_hidden_layers: int,
     is_attention_chunked: bool = False,
 ):
@@ -62,15 +66,17 @@ def enable_paddleformers_compat():
     pretrained_model = paddleformers.transformers.model_utils.PretrainedModel
     generation_mixin = paddleformers.generation.utils.GenerationMixin
 
-    setattr(pretrained_model, "get_head_mask", _get_head_mask)
-    setattr(pretrained_model, "device", None)
-    setattr(pretrained_model, "post_init", _post_init)
+    pretrained_model.get_head_mask = _get_head_mask
+    pretrained_model.device = None
+    pretrained_model.post_init = _post_init
 
     if not hasattr(generation_mixin, "_paddle_utils_original_generate"):
-        setattr(generation_mixin, "_paddle_utils_original_generate", generation_mixin.generate)
+        generation_mixin._paddle_utils_original_generate = generation_mixin.generate
+
         def _generate(self, input_ids, *args, **kwargs):
             return paddle.concat((input_ids, self._paddle_utils_original_generate(input_ids, *args, **kwargs)[0]), axis=-1)
-        setattr(generation_mixin, "generate", _generate)
+        generation_mixin.generate = _generate
+
 
 def _Tensor_min(self, *args, **kwargs):
     if "other" in kwargs:
@@ -89,7 +95,9 @@ def _Tensor_min(self, *args, **kwargs):
 
     return ret
 
-setattr(paddle.Tensor, "_min", _Tensor_min)
+
+paddle.Tensor._min = _Tensor_min
+
 
 def _Tensor_split(self, split_size, dim=0):
     if isinstance(split_size, int):
@@ -97,4 +105,5 @@ def _Tensor_split(self, split_size, dim=0):
     else:
         return paddle.split(self, split_size, dim)
 
-setattr(paddle.Tensor, "split", _Tensor_split)
+
+paddle.Tensor.split = _Tensor_split

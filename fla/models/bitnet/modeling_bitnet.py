@@ -1,16 +1,15 @@
 from __future__ import annotations
-import logging
-from ...paddle_utils import *
-import paddleformers
-import paddle
 
+import logging
 import math
 import warnings
 from typing import TYPE_CHECKING, Any
 
+import paddle
+import paddleformers
 import torch
 import torch.nn as nn
-from paddleformers.transformers.model_outputs import BaseModelOutputWithPast, CausalLMOutputWithPast
+from paddleformers.transformers.model_outputs import CausalLMOutputWithPast
 
 from fla.layers.bitattn import BitAttention
 from fla.models.bitnet.configuration_bitnet import BitNetConfig
@@ -19,6 +18,8 @@ from fla.modules import FusedCrossEntropyLoss, FusedLinearCrossEntropyLoss, RMSN
 from fla.modules.activations import swiglu
 from fla.modules.fused_bitlinear import FusedBitLinear
 from fla.modules.l2warp import l2_warp
+
+from ...paddle_utils import *
 
 if TYPE_CHECKING:
     from paddleformers.transformers.processing_utils import Unpack
@@ -59,11 +60,11 @@ class BitNetMLP(nn.Module):
         if hidden_act != 'swish':
             raise ValueError(f'Unsupported hidden_act: {hidden_act}')
         self.gate_proj = paddle.compat.nn.Linear(self.hidden_size, self.
-            intermediate_size, bias=False)
+                                                 intermediate_size, bias=False)
         self.up_proj = paddle.compat.nn.Linear(self.hidden_size, self.
-            intermediate_size, bias=False)
+                                               intermediate_size, bias=False)
         self.down_proj = paddle.compat.nn.Linear(self.intermediate_size,
-            self.hidden_size, bias=False)
+                                                 self.hidden_size, bias=False)
 
     def forward(
         self,
@@ -160,7 +161,7 @@ class BitNetPreTrainedModel(paddleformers.transformers.PretrainedModel):
         num_residuals_per_layer: int = 2,
     ):
         if isinstance(module, (paddle.compat.nn.Linear, FusedBitLinear, nn.
-            Conv1d)):
+                               Conv1d)):
             # Slightly different from the TF version which uses truncated_normal for initialization
             # cf https://github.com/pytorch/pytorch/pull/5617
             nn.init.normal_(module.weight, mean=0.0, std=self.config.initializer_range)
@@ -206,7 +207,7 @@ class BitNetModel(BitNetPreTrainedModel):
         self.embeddings = nn.Embedding(config.vocab_size, config.hidden_size, self.padding_idx)
         self.layers = nn.ModuleList([BitNetBlock(config, layer_idx) for layer_idx in range(config.num_hidden_layers)])
         self.norm = RMSNorm(config
-            .hidden_size, eps=config.norm_eps)
+                            .hidden_size, eps=config.norm_eps)
 
         self.gradient_checkpointing = False
 
@@ -289,9 +290,9 @@ class BitNetModel(BitNetPreTrainedModel):
         if not return_dict:
             return tuple(v for v in [hidden_states, next_cache, all_hidden_states, all_attns] if v is not None)
         return (paddleformers.transformers.model_outputs.
-            BaseModelOutputWithPast(last_hidden_state=hidden_states,
-            past_key_values=next_cache, hidden_states=all_hidden_states,
-            attentions=all_attns))
+                BaseModelOutputWithPast(last_hidden_state=hidden_states,
+                                        past_key_values=next_cache, hidden_states=all_hidden_states,
+                                        attentions=all_attns))
 
 
 class BitNetForCausalLM(BitNetPreTrainedModel, FLAGenerationMixin):
@@ -303,7 +304,7 @@ class BitNetForCausalLM(BitNetPreTrainedModel, FLAGenerationMixin):
         self.model = BitNetModel(config)
         self.vocab_size = config.vocab_size
         self.lm_head = paddle.compat.nn.Linear(config.hidden_size, config.
-            vocab_size, bias=False)
+                                               vocab_size, bias=False)
         self.criterion = None
 
         # Initialize weights and apply final processing
@@ -326,6 +327,7 @@ class BitNetForCausalLM(BitNetPreTrainedModel, FLAGenerationMixin):
 
     def get_decoder(self):
         return self.model
+
     def forward(
         self,
         input_ids: torch.LongTensor = None,

@@ -2,12 +2,10 @@
 
 from __future__ import annotations
 
-import paddleformers
-import paddle
-
 import warnings
 from typing import TYPE_CHECKING
 
+import paddle
 import torch
 import torch.nn as nn
 from einops import rearrange
@@ -107,13 +105,13 @@ class RWKV7Attention(nn.Module):
         self.k_a = nn.Parameter(torch.zeros(self.key_dim))
         self.r_k = nn.Parameter(torch.zeros(self.num_heads, self.head_dim))
         self.r_proj = paddle.compat.nn.Linear(hidden_size, self.key_dim,
-            bias=False)
+                                              bias=False)
         self.k_proj = paddle.compat.nn.Linear(hidden_size, self.key_dim,
-            bias=False)
+                                              bias=False)
         self.v_proj = paddle.compat.nn.Linear(hidden_size, self.value_dim,
-            bias=False)
+                                              bias=False)
         self.o_proj = paddle.compat.nn.Linear(self.value_dim, hidden_size,
-            bias=False)
+                                              bias=False)
 
         self.w_lora = LoRA(hidden_size, self.key_dim, low_rank_dim=decay_low_rank_dim, activation='tanh')
         if self.layer_idx != 0:

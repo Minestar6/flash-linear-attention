@@ -1,14 +1,13 @@
 from __future__ import annotations
-import paddleformers
 
 import inspect
 from typing import Any
 
+import paddleformers
 import torch
-from packaging import version
 from paddleformers.transformers.cache_utils import Cache as HFCacheBase
 
-     
+_IS_TRANSFORMERS_4_56_PLUS = False
 
 
 class FLALayer(paddleformers.transformers.cache_utils.CacheLayerMixin):
@@ -402,6 +401,7 @@ class FLAGenerationMixin(paddleformers.generation.utils.GenerationMixin):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+
     def prepare_inputs_for_generation(
         self,
         input_ids: torch.LongTensor = None,

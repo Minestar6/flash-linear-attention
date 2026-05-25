@@ -1213,6 +1213,8 @@ class ChunkRWKV6Function(torch.autograd.Function):
             chunk_indices=chunk_indices,
         )
         return dq.to(q), dk.to(k), dv.to(v), dg.to(g), du.to(u), None, dh0, None, None, None
+
+
 def chunk_rwkv6(
     r: torch.Tensor,
     k: torch.Tensor,

@@ -3,10 +3,9 @@
 from __future__ import annotations
 
 import logging
-import paddle
-import paddleformers
 from typing import TYPE_CHECKING
 
+import paddle
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -84,12 +83,12 @@ class RodimusAttention(nn.Module):
 
         assert mode in ['chunk', 'fused_recurrent', 'fused_chunk'], f"Not supported mode `{mode}`."
         self.gate_proj = paddle.compat.nn.Linear(self.hidden_size, self.
-            d_inner, bias=False)
+                                                 d_inner, bias=False)
         self.up_proj = paddle.compat.nn.Linear(self.hidden_size, self.
-            d_inner, bias=False)
+                                               d_inner, bias=False)
         self.activation_norm = RMSNormGated(hidden_size=self.d_inner, eps=norm_eps, norm_before_gate=False)
         self.down_proj = paddle.compat.nn.Linear(self.d_inner, self.
-            hidden_size, bias=False)
+                                                 hidden_size, bias=False)
 
         if use_short_conv:
             self.short_conv = ShortConvolution(
@@ -102,17 +101,17 @@ class RodimusAttention(nn.Module):
         self.residual_weight = nn.Parameter(torch.ones(
             (self.d_inner, ), dtype=torch.float32 if self.residual_in_fp32 else None), requires_grad=True)
         self.k_proj = paddle.compat.nn.Linear(self.d_inner, self.mem_size,
-            bias=False)
+                                              bias=False)
         self.q_proj = paddle.compat.nn.Linear(self.d_inner, self.mem_size,
-            bias=False)
+                                              bias=False)
         self.g_gate_proj = paddle.compat.nn.Linear(self.d_inner, self.
-            mem_size, bias=True)
+                                                   mem_size, bias=True)
         self.tau_gate_proj = paddle.compat.nn.Linear(self.d_inner, self.
-            mem_size, bias=True)
+                                                     mem_size, bias=True)
         self.i_gate_proj = nn.Sequential(paddle.compat.nn.Linear(self.
-            d_inner, self.input_gate_low_rank, bias=False), paddle.compat.
-            nn.Linear(self.input_gate_low_rank, self.d_inner, bias=True),
-            nn.Sigmoid())
+                                                                 d_inner, self.input_gate_low_rank, bias=False), paddle.compat.
+                                         nn.Linear(self.input_gate_low_rank, self.d_inner, bias=True),
+                                         nn.Sigmoid())
 
     def forward(
         self,
@@ -160,9 +159,9 @@ class RodimusAttention(nn.Module):
         k = self.k_proj(shift_hidden_states)
         v = self.i_gate_proj(hidden_states) * hidden_states
         g_gate = paddle.compat.nn.functional.linear(shift_hidden_states,
-            self.g_gate_proj.weight) + self.g_gate_proj.bias.float()
+                                                    self.g_gate_proj.weight) + self.g_gate_proj.bias.float()
         tau_gate = paddle.compat.nn.functional.linear(shift_hidden_states,
-            self.tau_gate_proj.weight) + self.tau_gate_proj.bias.float()
+                                                      self.tau_gate_proj.weight) + self.tau_gate_proj.bias.float()
 
         g_gate = F.softplus(g_gate)
         it_gate = g_gate
@@ -177,18 +176,16 @@ class RodimusAttention(nn.Module):
 
         recurrent_state = last_state['recurrent_state'] if last_state is not None else None
         if mode == 'fused_recurrent':
-            o, recurrent_state = fused_recurrent_gla(q=q, k=k, v=v, gk=
-                rt_gate_log, initial_state=recurrent_state,
-                output_final_state=use_cache, cu_seqlens=cu_seqlens)
+            o, recurrent_state = fused_recurrent_gla(q=q, k=k, v=v, gk=rt_gate_log, initial_state=recurrent_state,
+                                                     output_final_state=use_cache, cu_seqlens=cu_seqlens)
         elif mode == 'fused_chunk':
-            o, recurrent_state = fused_chunk_gla(q=q, k=k, v=v, g=
-                rt_gate_log, initial_state=recurrent_state,
-                output_final_state=use_cache)
+            o, recurrent_state = fused_chunk_gla(q=q, k=k, v=v, g=rt_gate_log, initial_state=recurrent_state,
+                                                 output_final_state=use_cache)
         elif mode == 'chunk':
             q, k, rt_gate_log = map(lambda x: x.to(v.dtype), (q, k, rt_gate_log))
             o, recurrent_state = chunk_gla(q=q, k=k, v=v, g=rt_gate_log,
-                initial_state=recurrent_state, output_final_state=use_cache,
-                cu_seqlens=cu_seqlens)
+                                           initial_state=recurrent_state, output_final_state=use_cache,
+                                           cu_seqlens=cu_seqlens)
         else:
             raise NotImplementedError(f"Not supported mode `{mode}`.")
 
@@ -245,13 +242,13 @@ class SlidingWindowSharedKeyAttention(nn.Module):
         self.max_position_embeddings = max_position_embeddings
         self.layer_idx = layer_idx
         self.q_proj = paddle.compat.nn.Linear(self.hidden_size, self.
-            hidden_size, bias=self.qkv_bias)
+                                              hidden_size, bias=self.qkv_bias)
         self.k_proj = paddle.compat.nn.Linear(self.hidden_size, self.
-            head_dim, bias=self.qkv_bias)
+                                              head_dim, bias=self.qkv_bias)
         self.v_proj = paddle.compat.nn.Linear(self.hidden_size, self.
-            hidden_size, bias=self.qkv_bias)
+                                              hidden_size, bias=self.qkv_bias)
         self.o_proj = paddle.compat.nn.Linear(self.hidden_size, self.
-            hidden_size, bias=False)
+                                              hidden_size, bias=False)
 
         if qk_norm:
             self.q_norm = RMSNorm(self.head_dim, dtype=torch.float32)
@@ -336,15 +333,12 @@ class SlidingWindowSharedKeyAttention(nn.Module):
             )
             cu_seqlens_q, cu_seqlens_k = cu_seqlens
             max_seqlen_q, max_seqlen_k = max_seq_lens
-            o = paddle.nn.functional.flash_attention.flash_attn_varlen_func(q, k, v, cu_seqlens_q=
-                cu_seqlens_q, cu_seqlens_k=cu_seqlens_k, max_seqlen_q=
-                max_seqlen_q, max_seqlen_k=max_seqlen_k, causal=True)[0]
+            o = paddle.nn.functional.flash_attention.flash_attn_varlen_func(
+                q, k, v, cu_seqlens_q=cu_seqlens_q, cu_seqlens_k=cu_seqlens_k, max_seqlen_q=max_seqlen_q, max_seqlen_k=max_seqlen_k, causal=True)[0]
             o = pad_input(o, indices_q, batch_size, q_len)
         elif cu_seqlens is not None:
             o = paddle.nn.functional.flash_attention.flash_attn_varlen_func(q.squeeze(0), k.squeeze(0
-                ), v.squeeze(0), cu_seqlens_q=cu_seqlens, cu_seqlens_k=
-                cu_seqlens, max_seqlen_q=max_seqlen, max_seqlen_k=
-                max_seqlen, causal=True)[0].unsqueeze(0)
+                                                                                                    ), v.squeeze(0), cu_seqlens_q=cu_seqlens, cu_seqlens_k=cu_seqlens, max_seqlen_q=max_seqlen, max_seqlen_k=max_seqlen, causal=True)[0].unsqueeze(0)
         else:
             o = paddle.nn.functional.flash_attention.flash_attention(q, k, v, causal=True)[0]
         o = o.reshape(batch_size, q_len, -1)

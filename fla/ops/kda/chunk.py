@@ -136,6 +136,8 @@ class ChunkKDAFunction(torch.autograd.Function):
 
         return (dq.to(q), dk.to(k), dv.to(v), dg.to(g_input), db.to(beta), dA, dbias, None, dh0,
                 None, None, None, None, None, None, None, None, None, None, None)
+
+
 def chunk_kda(
     q: torch.Tensor,
     k: torch.Tensor,

@@ -215,6 +215,8 @@ class ParallelPATHAttentionFunction(torch.autograd.Function):
                 dbeta.to(beta.dtype),
                 dg_cumsum.to(g_cumsum.dtype) if g_cumsum is not None else None,
                 None, None, None, None)
+
+
 def parallel_path_attn(
     q: torch.Tensor,
     k: torch.Tensor,
@@ -270,5 +272,6 @@ def parallel_path_attn(
     assert q.shape[-2] % k.shape[-2] == 0, 'the number of query heads should be divisible by the number of key heads'
     o, k_cache = ParallelPATHAttentionFunction.apply(q, k, v, w, beta, g, scale, cu_seqlens, use_cache)
     return o, k_cache
+
 
 parallel_path_attention = parallel_path_attn

@@ -211,6 +211,8 @@ class ChunkGatedDeltaProductFunction(torch.autograd.Function):
             dq = l2norm_bwd(q_org, q_rstd, dq)
             dk = l2norm_bwd(k, k_rstd, dk)
         return dq.to(q), dk.to(k), dv.to(v), dg, db.to(beta), None, None, dh0, None, None, None, None
+
+
 def chunk_gated_delta_product(
     q: torch.Tensor,
     k: torch.Tensor,

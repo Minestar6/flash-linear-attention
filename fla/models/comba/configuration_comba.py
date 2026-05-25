@@ -1,6 +1,6 @@
-import paddleformers
-
 import warnings
+
+import paddleformers
 
 
 class CombaConfig(paddleformers.transformers.PretrainedConfig):

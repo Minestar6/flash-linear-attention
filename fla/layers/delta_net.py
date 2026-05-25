@@ -2,12 +2,10 @@
 
 from __future__ import annotations
 
-import paddleformers
-import paddle
-
 import warnings
 from typing import TYPE_CHECKING
 
+import paddle
 import torch
 import torch.nn as nn
 from einops import rearrange
@@ -125,16 +123,16 @@ class DeltaNet(nn.Module):
         assert self.key_dim % num_heads == 0, f"key dim must be divisible by num_heads of {num_heads}"
         assert self.value_dim % num_heads == 0, f"value dim must be divisible by num_heads of {num_heads}"
         self.q_proj = paddle.compat.nn.Linear(hidden_size, self.key_dim,
-            bias=False)
+                                              bias=False)
         self.k_proj = paddle.compat.nn.Linear(hidden_size, self.key_dim,
-            bias=False)
+                                              bias=False)
         self.v_proj = paddle.compat.nn.Linear(hidden_size, self.value_dim,
-            bias=False)
+                                              bias=False)
 
         self.use_beta = use_beta
         if self.use_beta:
             self.b_proj = paddle.compat.nn.Linear(hidden_size, self.
-                num_heads, bias=False)
+                                                  num_heads, bias=False)
         if use_short_conv:
             self.conv_size = conv_size
             self.q_conv1d = ShortConvolution(
@@ -162,12 +160,12 @@ class DeltaNet(nn.Module):
             )
         if use_gate:
             self.g_proj = paddle.compat.nn.Linear(hidden_size, self.
-                value_dim, bias=False)
+                                                  value_dim, bias=False)
             self.o_norm = FusedRMSNormGated(self.head_v_dim, eps=norm_eps)
         else:
             self.o_norm = RMSNorm(self.head_v_dim, eps=norm_eps, dtype=torch.float32)
         self.o_proj = paddle.compat.nn.Linear(self.value_dim, hidden_size,
-            bias=False)
+                                              bias=False)
 
     def forward(
         self,

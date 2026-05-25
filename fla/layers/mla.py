@@ -8,15 +8,12 @@ https://github.com/huggingface/transformers/blob/main/src/transformers/models/de
 from __future__ import annotations
 
 import logging
-import paddle
-import paddleformers
-
 import math
 from typing import TYPE_CHECKING
 
+import paddle
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 from einops import rearrange, repeat
 
 from fla.layers.utils import pad_input, unpad_input
@@ -81,21 +78,22 @@ class MultiheadLatentAttention(nn.Module):
 
         if q_lora_rank is not None:
             self.q_proj = nn.Sequential(paddle.compat.nn.Linear(hidden_size,
-                q_lora_rank, bias=False), RMSNorm(q_lora_rank, dtype=torch.
-                float32), paddle.compat.nn.Linear(q_lora_rank, self.
-                num_heads * self.qk_head_dim, bias=False))
+                                                                q_lora_rank, bias=False), RMSNorm(q_lora_rank, dtype=torch.
+                                                                                                  float32), paddle.compat.nn.Linear(q_lora_rank, self.
+                                                                                                                                    num_heads * self.qk_head_dim, bias=False))
         else:
             self.q_proj = paddle.compat.nn.Linear(hidden_size, self.
-                num_heads * self.qk_head_dim, bias=False)
+                                                  num_heads * self.qk_head_dim, bias=False)
         self.k_rope = paddle.compat.nn.Linear(hidden_size, self.
-            qk_rope_head_dim, bias=False)
+                                              qk_rope_head_dim, bias=False)
         self.kv_proj = nn.Sequential(paddle.compat.nn.Linear(hidden_size,
-            self.kv_lora_rank, bias=False), RMSNorm(self.kv_lora_rank,
-            dtype=torch.float32), paddle.compat.nn.Linear(self.kv_lora_rank,
-            self.num_heads * (self.qk_nope_head_dim + self.v_head_dim),
-            bias=False))
+                                                             self.kv_lora_rank, bias=False), RMSNorm(self.kv_lora_rank,
+                                                                                                     dtype=torch.float32), paddle.compat.nn.Linear(self.kv_lora_rank,
+                                                                                                                                                   self.num_heads *
+                                                                                                                                                   (self.qk_nope_head_dim + self.v_head_dim),
+                                                                                                                                                   bias=False))
         self.o_proj = paddle.compat.nn.Linear(self.num_heads * self.
-            v_head_dim, hidden_size, bias=False)
+                                              v_head_dim, hidden_size, bias=False)
 
         self.scaling = self.qk_head_dim ** (-0.5)
         if rope_scaling is not None and rope_scaling.get("rope_type", "default") != "default":
@@ -130,13 +128,13 @@ class MultiheadLatentAttention(nn.Module):
         q_states = self.q_proj(hidden_states)
         q_states = rearrange(q_states, '... (h d) -> ... h d', d=self.qk_head_dim)
         q_pass, q_rot = paddle.compat.split(q_states, [self.
-            qk_nope_head_dim, self.qk_rope_head_dim], dim=-1)
+                                                       qk_nope_head_dim, self.qk_rope_head_dim], dim=-1)
         k_pass, k_rot = self.kv_proj(hidden_states), self.k_rope(hidden_states)
 
         k_rot = rearrange(k_rot, 'b t d -> b t 1 d')
         k_pass = rearrange(k_pass, '... (h d) -> ... h d', d=self.qk_nope_head_dim + self.v_head_dim)
         k_pass, v = paddle.compat.split(k_pass, [self.qk_nope_head_dim,
-            self.v_head_dim], dim=-1)
+                                                 self.v_head_dim], dim=-1)
 
         # apply rotary position embedding
         seqlen_offset, max_seqlen = 0, q_len
@@ -174,7 +172,7 @@ class MultiheadLatentAttention(nn.Module):
         # Head dim match to use flash-attn
         if self.qk_head_dim != self.v_head_dim:
             v = paddle.compat.nn.functional.pad(v, [0, self.qk_head_dim -
-                self.v_head_dim])
+                                                    self.v_head_dim])
 
         # Contains at least one padding token in the sequence
         if attention_mask is not None:
@@ -183,15 +181,12 @@ class MultiheadLatentAttention(nn.Module):
             q, (k, v), indices_q, cu_seqlens, max_seq_lens = unpad_input(q, (k, v), attention_mask, q_len)
             cu_seqlens_q, cu_seqlens_k = cu_seqlens
             max_seqlen_q, max_seqlen_k = max_seq_lens
-            o = paddle.nn.functional.flash_attention.flash_attn_unpadded(q, k, v, cu_seqlens_q=
-                cu_seqlens_q, cu_seqlens_k=cu_seqlens_k, max_seqlen_q=
-                max_seqlen_q, max_seqlen_k=max_seqlen_k, scale=self.scaling, causal=True)[0]
+            o = paddle.nn.functional.flash_attention.flash_attn_unpadded(
+                q, k, v, cu_seqlens_q=cu_seqlens_q, cu_seqlens_k=cu_seqlens_k, max_seqlen_q=max_seqlen_q, max_seqlen_k=max_seqlen_k, scale=self.scaling, causal=True)[0]
             o = pad_input(o, indices_q, batch_size, q_len)
         elif cu_seqlens is not None:
             o = paddle.nn.functional.flash_attention.flash_attn_unpadded(q.squeeze(0), k.squeeze(0
-                ), v.squeeze(0), cu_seqlens_q=cu_seqlens, cu_seqlens_k=
-                cu_seqlens, max_seqlen_q=max_seqlen, max_seqlen_k=
-                max_seqlen, scale=self.scaling, causal=True)[0].unsqueeze(0)
+                                                                                                 ), v.squeeze(0), cu_seqlens_q=cu_seqlens, cu_seqlens_k=cu_seqlens, max_seqlen_q=max_seqlen, max_seqlen_k=max_seqlen, scale=self.scaling, causal=True)[0].unsqueeze(0)
         else:
             o = paddle.nn.functional.flash_attention.flash_attention(q, k, v, causal=True, softmax_scale=self.scaling)[0]
 

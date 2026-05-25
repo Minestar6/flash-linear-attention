@@ -6,9 +6,7 @@ https://github.com/corl-team/rebased/blob/main/flash_linear_attention/fla/layers
 
 from __future__ import annotations
 
-from ..paddle_utils import *
 import paddle
-
 import torch
 import torch.nn as nn
 from einops import rearrange
@@ -16,6 +14,8 @@ from einops import rearrange
 from fla.modules.feature_map import RebasedFeatureMap
 from fla.ops.linear_attn import chunk_linear_attn, fused_chunk_linear_attn
 from fla.ops.rebased import parallel_rebased
+
+from ..paddle_utils import *
 
 
 class ReBasedLinearAttention(nn.Module):
@@ -56,13 +56,13 @@ class ReBasedLinearAttention(nn.Module):
 
         self.feature_map = RebasedFeatureMap(self.feature_dim, use_gamma, use_beta, normalize)
         self.q_proj = paddle.compat.nn.Linear(self.hidden_size, self.
-            feature_dim * self.num_heads, bias=False)
+                                              feature_dim * self.num_heads, bias=False)
         self.k_proj = paddle.compat.nn.Linear(self.hidden_size, self.
-            feature_dim * self.num_heads, bias=False)
+                                              feature_dim * self.num_heads, bias=False)
         self.v_proj = paddle.compat.nn.Linear(self.hidden_size, self.
-            num_key_value_heads * self.head_dim, bias=False)
+                                              num_key_value_heads * self.head_dim, bias=False)
         self.o_proj = paddle.compat.nn.Linear(self.num_heads * self.
-            head_dim, self.hidden_size, bias=False)
+                                              head_dim, self.hidden_size, bias=False)
         self.dropout = nn.Identity()
 
     def forward(self, hidden_states: torch.Tensor, **kwargs):

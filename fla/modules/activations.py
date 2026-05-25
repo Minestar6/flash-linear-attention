@@ -1,6 +1,6 @@
 import paddle
-# Copyright (c) 2023-2025, Tri Dao, Yu Zhang, Songlin Yang.
 
+# Copyright (c) 2023-2025, Tri Dao, Yu Zhang, Songlin Yang.
 import torch
 import torch.nn.functional as F
 import triton
@@ -131,6 +131,8 @@ def sigmoid_bwd_kernel(
     s = 1.0 / (1.0 + exp(-x_val))
     dx_val = g_val * s * (1.0 - s)
     tl.store(dx + dx_off, dx_val.to(dx.dtype.element_ty), mask=mask)
+
+
 def sigmoid_fwd(x: torch.Tensor, output_contiguous: bool = False) -> torch.Tensor:
     x = _ensure_inner_contiguous(x)
     T, D = x.size, x.shape[-1]
@@ -141,6 +143,8 @@ def sigmoid_fwd(x: torch.Tensor, output_contiguous: bool = False) -> torch.Tenso
         stride_y_row=_get_stride(y),
     )
     return y
+
+
 def sigmoid_bwd(x: torch.Tensor, dy: torch.Tensor, output_contiguous: bool = False) -> torch.Tensor:
     x = _ensure_inner_contiguous(x)
     dy = _ensure_inner_contiguous(dy)
@@ -243,6 +247,8 @@ def logsigmoid_bwd_kernel(
     b_dy = tl.load(dy + dy_off, mask=m_i, other=0.).to(tl.float32)
     b_dx = b_dy * ((1. - tl.sigmoid(b_x)) / temperature)
     tl.store(dx + dx_off, b_dx.to(dx.dtype.element_ty), mask=m_i)
+
+
 def logsigmoid_fwd(x: torch.Tensor, temperature: float = 1., output_contiguous: bool = False) -> torch.Tensor:
     x = _ensure_inner_contiguous(x)
     T, D = x.size, x.shape[-1]
@@ -257,6 +263,8 @@ def logsigmoid_fwd(x: torch.Tensor, temperature: float = 1., output_contiguous: 
         stride_y_row=_get_stride(y),
     )
     return y
+
+
 def logsigmoid_bwd(x: torch.Tensor, dy: torch.Tensor, temperature: float = 1., output_contiguous: bool = False) -> torch.Tensor:
     x = _ensure_inner_contiguous(x)
     dy = _ensure_inner_contiguous(dy)
@@ -359,6 +367,8 @@ def swish_bwd_kernel(
     s = 1.0 / (1.0 + exp(-x_val))
     dx_val = g_val * s * (1.0 + x_val * (1.0 - s))
     tl.store(dx + dx_off, dx_val.to(dx.dtype.element_ty), mask=mask)
+
+
 def swish_fwd(x: torch.Tensor, output_contiguous: bool = False) -> torch.Tensor:
     x = _ensure_inner_contiguous(x)
     T, D = x.size, x.shape[-1]
@@ -369,6 +379,8 @@ def swish_fwd(x: torch.Tensor, output_contiguous: bool = False) -> torch.Tensor:
         stride_y_row=_get_stride(y),
     )
     return y
+
+
 def swish_bwd(x: torch.Tensor, dy: torch.Tensor, output_contiguous: bool = False) -> torch.Tensor:
     x = _ensure_inner_contiguous(x)
     dy = _ensure_inner_contiguous(dy)
@@ -399,9 +411,13 @@ class SwishFunction(torch.autograd.Function):
 
 
 swish = SwishFunction.apply
+
+
 def bias_gelu(y, bias):
     x = bias + y
     return (x * 0.5 * (1.0 + torch.tanh(0.79788456 * x * (1 + 0.044715 * x * x)))).to(dtype=y.dtype)
+
+
 def bias_gelu_bwd(g, y, bias):
     """Assume that y has shape (B, D=D) and bias has shape (D)"""
     x = bias + y
@@ -430,8 +446,12 @@ class GeLUFunction(torch.autograd.Function):
 
 
 bias_gelu_impl = GeLUFunction.apply
+
+
 def gelu_fwd(x):
     return (x * 0.5 * (1.0 + torch.tanh(0.79788456 * x * (1 + 0.044715 * x * x)))).to(dtype=x.dtype)
+
+
 def gelu_bwd(g, x):
     tanh_out = torch.tanh(0.79788456 * x * (1 + 0.044715 * x * x))
     # sqrt(2/pi) * 3 * 0.044715 -> 0.1070322243
@@ -456,11 +476,17 @@ class FastGeLUFunction(torch.autograd.Function):
 
 
 fast_gelu_impl = FastGeLUFunction.apply
+
+
 def relu_bwd(g, x):
     return torch.where(x >= 0, g, 0.0).to(dtype=x.dtype)
+
+
 def sqrelu_fwd(x):
     r = F.relu(x.float())
     return (r * r).to(dtype=x.dtype)
+
+
 def sqrelu_bwd(g, x):
     return (2.0 * g * F.relu(x.float())).to(dtype=x.dtype)
 
@@ -566,6 +592,8 @@ def swiglu_fwdbwd_kernel(
         z_off = row * stride_z_row + col
         z_val = x_s * y_val
         tl.store(z + z_off, z_val.to(z.dtype.element_ty), mask=mask)
+
+
 def swiglu_fwd(x: torch.Tensor, y: torch.Tensor, output_contiguous: bool = False) -> torch.Tensor:
     assert x.shape == y.shape, f"swiglu_fwd: shape mismatch x={x.shape} y={y.shape}"
     x = _ensure_inner_contiguous(x)
@@ -579,6 +607,8 @@ def swiglu_fwd(x: torch.Tensor, y: torch.Tensor, output_contiguous: bool = False
         stride_z_row=_get_stride(z),
     )
     return z
+
+
 def swiglu_fwdbwd(
     x: torch.Tensor,
     y: torch.Tensor,

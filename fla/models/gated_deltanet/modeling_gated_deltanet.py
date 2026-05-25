@@ -1,13 +1,12 @@
 from __future__ import annotations
-import logging
-from ...paddle_utils import *
-import paddleformers
-import paddle
 
+import logging
 import math
 import warnings
 from typing import TYPE_CHECKING, Optional
 
+import paddle
+import paddleformers
 import torch
 import torch.nn as nn
 from paddleformers.transformers.model_outputs import BaseModelOutputWithPast, CausalLMOutputWithPast
@@ -19,6 +18,8 @@ from fla.models.utils import Cache, FLAGenerationMixin
 from fla.modules import FusedCrossEntropyLoss, FusedLinearCrossEntropyLoss, RMSNorm
 from fla.modules import GatedMLP as GatedDeltaNetMLP
 from fla.modules.l2warp import l2_warp
+
+from ...paddle_utils import *
 
 if TYPE_CHECKING:
     from paddleformers.transformers.processing_utils import Unpack
@@ -127,7 +128,7 @@ class GatedDeltaNetPreTrainedModel(paddleformers.transformers.PretrainedModel):
         num_residuals_per_layer: int = 2,
     ):
         if isinstance(module, GatedDeltaNet) and next(module.parameters()
-            ).device.type != 'meta':
+                                                      ).device.type != 'meta':
             with torch.no_grad():
                 if not getattr(module.A_log, '_is_hf_initialized', False):
                     module.A_log.copy_(nn.init.uniform_(module.A_log, a=0, b=16).log())
@@ -188,7 +189,7 @@ class GatedDeltaNetModel(GatedDeltaNetPreTrainedModel):
         self.embeddings = nn.Embedding(config.vocab_size, config.hidden_size, self.padding_idx)
         self.layers = nn.ModuleList([GatedDeltaNetBlock(config, layer_idx) for layer_idx in range(config.num_hidden_layers)])
         self.norm = RMSNorm(config
-            .hidden_size, eps=config.norm_eps)
+                            .hidden_size, eps=config.norm_eps)
 
         self.gradient_checkpointing = False
 
@@ -260,9 +261,8 @@ class GatedDeltaNetModel(GatedDeltaNetPreTrainedModel):
         if not return_dict:
             return tuple(i for i in [hidden_states, past_key_values, all_hidden_states, all_attns] if i is not None)
         return (paddleformers.transformers.model_outputs.
-            BaseModelOutputWithPast(last_hidden_state=hidden_states,
-            past_key_values=past_key_values, hidden_states=
-            all_hidden_states, attentions=all_attns))
+                BaseModelOutputWithPast(last_hidden_state=hidden_states,
+                                        past_key_values=past_key_values, hidden_states=all_hidden_states, attentions=all_attns))
 
 
 class GatedDeltaNetForCausalLM(GatedDeltaNetPreTrainedModel, FLAGenerationMixin):
@@ -274,7 +274,7 @@ class GatedDeltaNetForCausalLM(GatedDeltaNetPreTrainedModel, FLAGenerationMixin)
         self.model = GatedDeltaNetModel(config)
         self.vocab_size = config.vocab_size
         self.lm_head = paddle.compat.nn.Linear(config.hidden_size, config.
-            vocab_size, bias=False)
+                                               vocab_size, bias=False)
         self.criterion = None
 
         # Initialize weights and apply final processing
@@ -312,6 +312,7 @@ class GatedDeltaNetForCausalLM(GatedDeltaNetPreTrainedModel, FLAGenerationMixin)
                 )
             else:
                 raise exception
+
     def forward(
         self,
         input_ids: torch.LongTensor = None,

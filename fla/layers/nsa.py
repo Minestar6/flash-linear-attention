@@ -3,11 +3,9 @@
 from __future__ import annotations
 
 import logging
-import paddleformers
-import paddle
-
 from typing import TYPE_CHECKING
 
+import paddle
 import torch
 import torch.nn as nn
 from einops import rearrange
@@ -57,15 +55,15 @@ class NativeSparseAttention(nn.Module):
         self.max_position_embeddings = max_position_embeddings
         self.layer_idx = layer_idx
         self.q_proj = paddle.compat.nn.Linear(self.hidden_size, self.
-            num_heads * self.head_dim, bias=self.qkv_bias)
+                                              num_heads * self.head_dim, bias=self.qkv_bias)
         self.k_proj = paddle.compat.nn.Linear(self.hidden_size, self.kv_dim,
-            bias=self.qkv_bias)
+                                              bias=self.qkv_bias)
         self.v_proj = paddle.compat.nn.Linear(self.hidden_size, self.kv_dim,
-            bias=self.qkv_bias)
+                                              bias=self.qkv_bias)
         self.g_proj = paddle.compat.nn.Linear(self.hidden_size, self.
-            num_heads * 3, bias=False)
+                                              num_heads * 3, bias=False)
         self.o_proj = paddle.compat.nn.Linear(self.num_heads * self.
-            head_dim, self.hidden_size, bias=False)
+                                              head_dim, self.hidden_size, bias=False)
 
         self.rotary = RotaryEmbedding(dim=self.head_dim, base=self.rope_theta)
 

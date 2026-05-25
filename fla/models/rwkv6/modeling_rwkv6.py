@@ -1,13 +1,12 @@
 from __future__ import annotations
-import logging
-from ...paddle_utils import *
-import paddleformers
-import paddle
 
+import logging
 import math
 import warnings
 from typing import TYPE_CHECKING, Optional
 
+import paddle
+import paddleformers
 import torch
 import torch.nn as nn
 from paddleformers.transformers.model_outputs import BaseModelOutputWithPast, CausalLMOutputWithPast
@@ -20,6 +19,8 @@ from fla.modules import FusedCrossEntropyLoss, FusedLinearCrossEntropyLoss, Laye
 from fla.modules.activations import ACT2FN
 from fla.modules.l2warp import l2_warp
 from fla.modules.token_shift import token_shift
+
+from ...paddle_utils import *
 
 if TYPE_CHECKING:
     from paddleformers.transformers.processing_utils import Unpack
@@ -57,7 +58,7 @@ class RWKV6FeedForward(nn.Module):
 
         self.key = LerpLinear(hidden_size, intermediate_size)
         self.value = paddle.compat.nn.Linear(intermediate_size, hidden_size,
-            bias=False)
+                                             bias=False)
         self.receptance = LerpLinear(hidden_size, hidden_size)
         self.act_fn = ACT2FN[hidden_act]
 
@@ -325,9 +326,8 @@ class RWKV6Model(RWKV6PreTrainedModel):
         if not return_dict:
             return tuple(i for i in [hidden_states, past_key_values, all_hidden_states, all_attns] if i is not None)
         return (paddleformers.transformers.model_outputs.
-            BaseModelOutputWithPast(last_hidden_state=hidden_states,
-            past_key_values=past_key_values, hidden_states=
-            all_hidden_states, attentions=all_attns))
+                BaseModelOutputWithPast(last_hidden_state=hidden_states,
+                                        past_key_values=past_key_values, hidden_states=all_hidden_states, attentions=all_attns))
 
 
 class RWKV6ForCausalLM(RWKV6PreTrainedModel, FLAGenerationMixin):
@@ -339,7 +339,7 @@ class RWKV6ForCausalLM(RWKV6PreTrainedModel, FLAGenerationMixin):
         self.model = RWKV6Model(config)
         self.vocab_size = config.vocab_size
         self.lm_head = paddle.compat.nn.Linear(config.hidden_size, config.
-            vocab_size, bias=False)
+                                               vocab_size, bias=False)
         self.criterion = None
 
         # Initialize weights and apply final processing
@@ -377,6 +377,7 @@ class RWKV6ForCausalLM(RWKV6PreTrainedModel, FLAGenerationMixin):
                 )
             else:
                 raise exception
+
     def forward(
         self,
         input_ids: torch.LongTensor = None,

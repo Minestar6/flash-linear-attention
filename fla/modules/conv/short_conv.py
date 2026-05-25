@@ -1,8 +1,8 @@
-import os
 # Copyright (c) 2023-2025, Songlin Yang, Yu Zhang
 
 """Short convolution implementation for efficient causal convolutions."""
 
+import os
 import warnings
 
 import torch
@@ -45,9 +45,9 @@ class ShortConvolution(nn.Conv1d):
         - Falls back to Triton backend if CUDA backend is unavailable
     """
 
-    def __init__(self, hidden_size: int, kernel_size: int, bias: bool=False,
-        activation: (str | None)='silu', backend: (str | None)='triton',
-        device=None, dtype: (torch.dtype | None)=None, **kwargs):
+    def __init__(self, hidden_size: int, kernel_size: int, bias: bool = False,
+                 activation: (str | None) = 'silu', backend: (str | None) = 'triton',
+                 device=None, dtype: (torch.dtype | None) = None, **kwargs):
         super().__init__(
             in_channels=hidden_size,
             out_channels=hidden_size,
@@ -71,7 +71,6 @@ class ShortConvolution(nn.Conv1d):
                 "The `use_fast_conv1d` parameter is deprecated and will be ignored. "
                 "Please use the `backend` parameter instead.",
             )
-        import os
         self.backend = os.environ.get('FLA_CONV_BACKEND', backend)
         if backend not in ['cuda', 'triton']:
             raise ValueError(f"Invalid backend: {backend}, must be one of ['cuda', 'triton']")

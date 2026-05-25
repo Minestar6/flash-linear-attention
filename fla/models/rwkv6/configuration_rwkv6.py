@@ -1,6 +1,6 @@
-import paddleformers
-
 import warnings
+
+import paddleformers
 
 
 class RWKV6Config(paddleformers.transformers.PretrainedConfig):

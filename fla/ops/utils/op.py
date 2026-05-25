@@ -1,8 +1,6 @@
 import os
+
 # Copyright (c) 2023-2025, Songlin Yang, Yu Zhang
-
-import os
-
 import triton
 import triton.language as tl
 import triton.language.extra.libdevice as tldevice

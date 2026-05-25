@@ -214,6 +214,8 @@ def fused_recurrent_kda_fwd_kernel(
             else:
                 p_ht = ht + (i_n * HV + i_hv) * K * V + o_k[:, None] * V + o_v[None, :]
             tl.store(p_ht, b_h.to(p_ht.dtype.element_ty), mask=mask_h)
+
+
 def fused_recurrent_kda_fwd(
     q: torch.Tensor,
     k: torch.Tensor,

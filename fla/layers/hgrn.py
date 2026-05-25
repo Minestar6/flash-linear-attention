@@ -4,11 +4,9 @@
 
 from __future__ import annotations
 
-import paddleformers
-import paddle
-
 from typing import TYPE_CHECKING
 
+import paddle
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -53,11 +51,11 @@ class HGRNAttention(nn.Module):
 
         assert mode in ['chunk', 'fused_recurrent'], f"Not supported mode `{mode}`."
         self.i_proj = paddle.compat.nn.Linear(hidden_size, self.input_dim,
-            bias=False)
+                                              bias=False)
         self.f_proj = paddle.compat.nn.Linear(hidden_size, self.input_dim,
-            bias=False)
+                                              bias=False)
         self.g_proj = paddle.compat.nn.Linear(hidden_size, self.input_dim,
-            bias=False)
+                                              bias=False)
 
         if use_short_conv:
             self.conv_size = conv_size
@@ -80,7 +78,7 @@ class HGRNAttention(nn.Module):
             eps=norm_eps,
         )
         self.o_proj = paddle.compat.nn.Linear(self.input_dim, hidden_size,
-            bias=False)
+                                              bias=False)
 
     def forward(
         self,
@@ -132,7 +130,7 @@ class HGRNAttention(nn.Module):
         # the lower bound for the first layer is zero
         if lower_bound is not None and self.layer_idx > 0:
             f = paddle.logaddexp(x=lower_bound.log(), y=torch.log1p(-
-                lower_bound) + f).to(f)
+                                                                    lower_bound) + f).to(f)
         i = swiglu(i, 1 - f.exp())
 
         # dealing with left-padding

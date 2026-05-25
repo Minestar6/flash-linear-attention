@@ -3,21 +3,20 @@
 from __future__ import annotations
 
 import logging
-from ..paddle_utils import *
-import paddleformers
-import paddle
-import os
-
 import math
+import os
 import warnings
 from typing import TYPE_CHECKING
 
+import paddle
 import torch
 import torch.nn as nn
 
 from fla.layers.utils import get_layer_cache, update_layer_cache
 from fla.modules.activations import ACT2FN
 from fla.modules.layernorm_gated import RMSNormGated
+
+from ..paddle_utils import *
 
 with warnings.catch_warnings():
     warnings.simplefilter('ignore')
@@ -55,8 +54,7 @@ def pad_tensor_by_size(input_tensor: torch.Tensor, pad_size: int):
     Assumes that we only have tensors of either size 4 or 3
     """
     pad_shape = (0, 0, 0, 0, 0, pad_size, 0, 0) if len(input_tensor.shape) == 4 else (0, 0, 0, pad_size, 0, 0)
-    return paddle.compat.nn.functional.pad(input_tensor, pad_shape, mode=
-        'constant', value=0)
+    return paddle.compat.nn.functional.pad(input_tensor, pad_shape, mode='constant', value=0)
 
 
 def reshape_into_chunks(input_tensor, pad_size, chunk_size):
@@ -168,7 +166,7 @@ class Mamba2(nn.Module):
         # projection of the input hidden states
         projection_size = self.intermediate_size + self.conv_dim + self.num_heads
         self.in_proj = paddle.compat.nn.Linear(self.hidden_size,
-            projection_size, bias=use_bias)
+                                               projection_size, bias=use_bias)
         # selective projection used to make dt, B and C input dependant
 
         # time step projection (discretization)
@@ -196,7 +194,7 @@ class Mamba2(nn.Module):
         self.D = nn.Parameter(torch.ones(self.num_heads))
         self.D._no_weight_decay = True
         self.out_proj = paddle.compat.nn.Linear(self.intermediate_size,
-            self.hidden_size, bias=use_bias)
+                                                self.hidden_size, bias=use_bias)
         self.use_bias = use_bias
 
         self.layer_idx = layer_idx
@@ -208,7 +206,6 @@ class Mamba2(nn.Module):
                 "Falling back to the naive implementation. "
                 "To install follow https://github.com/state-spaces/mamba/#installation",
             )
-        import os
         backend = os.environ.get('FLA_CONV_BACKEND', backend)
         assert backend in ['cuda', 'triton'], f"Unsupported backend: {backend}"
         if backend == 'cuda' and causal_conv1d_fn is None:
@@ -349,8 +346,8 @@ class Mamba2(nn.Module):
                     hidden_states_B_C_transposed = hidden_states_B_C.transpose(1, 2)
                     new_conv_state = paddle.compat.nn.functional.pad(
                         hidden_states_B_C_transposed, (self.
-                        conv_kernel_size - hidden_states_B_C_transposed.
-                        shape[-1], 0))
+                                                       conv_kernel_size - hidden_states_B_C_transposed.
+                                                       shape[-1], 0))
 
                 if self.activation not in ["silu", "swish"]:
                     hidden_states_B_C = self.act(
@@ -376,8 +373,8 @@ class Mamba2(nn.Module):
                     if attention_mask is not None and attention_mask.shape[1] > 1 and attention_mask.shape[0] > 1 \
                     else hidden_states_B_C
                 hidden_states, B, C = paddle.compat.split(hidden_states_B_C,
-                    [self.intermediate_size, groups_time_state_size,
-                    groups_time_state_size], dim=-1)
+                                                          [self.intermediate_size, groups_time_state_size,
+                                                           groups_time_state_size], dim=-1)
 
                 # 3. SSM transformation
                 scan_output, ssm_state = mamba_chunk_scan_combined(

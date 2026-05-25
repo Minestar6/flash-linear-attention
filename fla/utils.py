@@ -1,8 +1,4 @@
-from .paddle_utils import *
-import paddle
-import os
 # Copyright (c) 2023-2025, Songlin Yang, Yu Zhang
-
 import contextlib
 import functools
 import inspect
@@ -15,9 +11,12 @@ from enum import Enum
 from functools import lru_cache
 from typing import TYPE_CHECKING, Any
 
+import paddle
 import torch
 import triton
 from packaging import version
+
+from .paddle_utils import *
 
 logger = logging.getLogger(__name__)
 
@@ -527,8 +526,10 @@ def _identity_decorator(fn=None, **_kwargs):
         return decorator(fn)
     return decorator
 
+
 autocast_custom_fwd = _identity_decorator
 autocast_custom_bwd = _identity_decorator
+
 
 def custom_device_ctx(index: int):
     if hasattr(device_torch_lib, 'device'):

@@ -1,11 +1,9 @@
-import paddle
-import os
 # Copyright (c) 2023-2025, Songlin Yang, Yu Zhang
-
 import logging
 import os
 import sys
 
+import paddle
 import torch
 import triton
 import triton.language as tl

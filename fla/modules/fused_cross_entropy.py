@@ -1,9 +1,7 @@
-import paddle
-
 # Copyright (c) 2023, Tri Dao.
-
 from typing import Any
 
+import paddle
 import torch
 import torch.nn as nn
 import triton
@@ -11,10 +9,11 @@ import triton.language as tl
 
 from fla.ops.utils.op import exp, log
 from fla.utils import input_guard
+
 try:
     if 'all_gather_into_tensor' not in dir(torch.distributed):
         paddle.distributed.stream.all_gather = torch.distributed._all_gather_base
-except Exception as e:
+except Exception:
     paddle.distributed.stream.all_gather = None
 
 
@@ -203,11 +202,9 @@ def fused_cross_entropy_forward(
             losses = losses.sum(dim=0)
         if world_size > 1:
             lse_allgather = torch.empty(world_size, n_rows, dtype=lse.dtype, device=lse.device)
-            paddle.distributed.stream.all_gather(tensor_or_tensor_list=
-                lse_allgather, tensor=lse, group=process_group)
-            handle_losses = paddle.distributed.all_reduce(tensor=losses, op
-                =torch.distributed.ReduceOp.SUM, group=process_group,
-                sync_op=not True)
+            paddle.distributed.stream.all_gather(tensor_or_tensor_list=lse_allgather, tensor=lse, group=process_group)
+            handle_losses = paddle.distributed.all_reduce(tensor=losses, op=torch.distributed.ReduceOp.SUM, group=process_group,
+                                                          sync_op=not True)
             lse = torch.logsumexp(lse_allgather, dim=0)
             handle_losses.wait()
         # After the allreduce, if there's no label_smoothing, the total losses are - predicted_logit,

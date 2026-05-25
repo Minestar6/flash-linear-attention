@@ -2,22 +2,21 @@
 
 from __future__ import annotations
 
-from ..paddle_utils import *
-import paddleformers
-import paddle
-
 from typing import TYPE_CHECKING
 
+import paddle
+import paddleformers
 import torch
 import torch.nn as nn
 from einops import rearrange, repeat
-from paddleformers.transformers.activations import ACT2FN
 
 from fla.layers.utils import get_layer_cache, get_unpad_data, index_first_axis, pad_input, update_layer_cache
 from fla.modules import FusedRMSNormGated, RMSNorm, ShortConvolution
 from fla.modules.rotary import RotaryEmbedding
 from fla.ops.retention import chunk_retention, fused_chunk_retention, fused_recurrent_retention, parallel_retention
 from fla.ops.utils.index import prepare_lens_from_mask
+
+from ..paddle_utils import *
 
 if TYPE_CHECKING:
     from paddleformers.transformers.processing_utils import Unpack
@@ -96,7 +95,7 @@ class MultiScaleRetention(nn.Module):
         self.num_kv_heads = num_kv_heads if num_kv_heads is not None else num_heads
         self.num_kv_groups = self.num_heads // self.num_kv_heads
         self.feature_map_fn = paddleformers.transformers.activations.ACT2FN[feature_map
-            ] if feature_map is not None else None
+                                                                            ] if feature_map is not None else None
 
         self.use_short_conv = use_short_conv
         self.conv_size = conv_size
@@ -116,14 +115,14 @@ class MultiScaleRetention(nn.Module):
         self.head_k_dim = self.key_dim // num_heads
         self.head_v_dim = self.value_dim // num_heads
         self.q_proj = paddle.compat.nn.Linear(hidden_size, self.key_dim,
-            bias=False)
+                                              bias=False)
         self.k_proj = paddle.compat.nn.Linear(hidden_size, self.
-            key_dim_per_group, bias=False)
+                                              key_dim_per_group, bias=False)
         self.v_proj = paddle.compat.nn.Linear(hidden_size, self.
-            value_dim_per_group, bias=False)
+                                              value_dim_per_group, bias=False)
         if self.use_output_gate:
             self.g_proj = paddle.compat.nn.Linear(hidden_size, self.
-                value_dim, bias=False)
+                                                  value_dim, bias=False)
 
         if use_short_conv:
             self.conv_size = conv_size
@@ -146,7 +145,7 @@ class MultiScaleRetention(nn.Module):
                 activation='silu',
             )
         self.o_proj = paddle.compat.nn.Linear(self.value_dim, hidden_size,
-            bias=False)
+                                              bias=False)
 
         if gate_fn == 'swish' and fuse_norm and use_output_gate:
             self.g_norm_swish_gate = FusedRMSNormGated(

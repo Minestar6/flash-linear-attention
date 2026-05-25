@@ -1,8 +1,7 @@
 import paddle
-# Copyright (c) 2023-2025, Songlin Yang, Yu Zhang
 
+# Copyright (c) 2023-2025, Songlin Yang, Yu Zhang
 import torch
-import torch.nn.functional as F
 from einops import rearrange
 
 

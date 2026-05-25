@@ -1,6 +1,6 @@
 import paddle
-# Copyright (c) 2023-2025, Songlin Yang, Yu Zhang
 
+# Copyright (c) 2023-2025, Songlin Yang, Yu Zhang
 import torch
 import triton
 import triton.language as tl
@@ -466,7 +466,7 @@ def token_shift_bwd(
         )
     else:
         BT = min(64, triton.next_power_of_2(triton.cdiv(max(16, dy.size //
-            D), get_multiprocessor_count(dy.device.index))))
+                                                            D), get_multiprocessor_count(dy.device.index))))
         if chunk_indices is None and cu_seqlens is not None:
             chunk_indices = prepare_chunk_indices(cu_seqlens, BT)
         NT = len(chunk_indices) if cu_seqlens is not None else triton.cdiv(T, BT)

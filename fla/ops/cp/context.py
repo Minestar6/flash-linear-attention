@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 import torch
+
 try:
     import torch.distributed as dist
 except (ImportError, AttributeError):
@@ -51,9 +52,9 @@ class FLACPContext:
 
 @tensor_cache
 def get_cp_cu_seqlens(cu_seqlens: torch.LongTensor, cu_seqlens_cpu: (torch.
-    LongTensor | None)=None, world_size: (int | None)=None, rank: (int |
-    None)=None, group=None,
-    conv1d_kernel_size: (int | None)=None) ->FLACPContext:
+                                                                     LongTensor | None) = None, world_size: (int | None) = None, rank: (int |
+                                                                                                                                        None) = None, group=None,
+                      conv1d_kernel_size: (int | None) = None) -> FLACPContext:
     # 1. Initialize environment info
     if world_size is None:
         assert group is not None
@@ -141,8 +142,8 @@ def get_cp_cu_seqlens(cu_seqlens: torch.LongTensor, cu_seqlens_cpu: (torch.
 
 
 def build_cp_context(cu_seqlens: torch.Tensor, group, conv1d_kernel_size:
-    (int | None)=None, cu_seqlens_cpu: (torch.Tensor | None)=None
-    ) ->FLACPContext:
+                     (int | None) = None, cu_seqlens_cpu: (torch.Tensor | None) = None
+                     ) -> FLACPContext:
     """Build a CP context for the given cu_seqlens and process group.
 
     Args:

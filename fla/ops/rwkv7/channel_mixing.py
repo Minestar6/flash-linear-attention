@@ -1,8 +1,7 @@
-import paddle
 # Copyright (c) 2023-2025, Songlin Yang, Yu Zhang
-
 import logging
 
+import paddle
 import torch
 import triton
 import triton.language as tl
@@ -154,7 +153,7 @@ def rwkv_relu_and_square_fwd(x: torch.Tensor, inplace: bool = True):
 
     def grid(meta):
         return (output.size + meta['BLOCK_SIZE'] - 1) // meta['BLOCK_SIZE'
-            ], 1, 1
+                                                              ], 1, 1
     rwkv_channel_mixing_pow_and_relu[grid](
         x,
         output,
@@ -237,6 +236,8 @@ def rwkv_mix_bwd_kenel(
         tl.cast(prod, dtype=dx_prev_ptr.dtype.element_ty),
         mask=is_first_step,
     )
+
+
 def compute_x_k_grad(dk1, x, x_prev):
     """
     Args:
@@ -279,7 +280,7 @@ def rwkv_channel_mixing_bwd(grad_output, x, x_prev, x_k, key_weight, value_weigh
 
     def grid(meta):
         return (batch_size * seq_len * n_embd + meta['BLOCK_SIZE'] - 1
-            ) // meta['BLOCK_SIZE'], 1, 1
+                ) // meta['BLOCK_SIZE'], 1, 1
     rwkv_mix_bwd_kenel[grid](
         dk1,
         x_k.squeeze(),

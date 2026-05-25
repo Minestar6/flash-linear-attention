@@ -1,14 +1,13 @@
 from __future__ import annotations
+
 # Copyright (c) 2023-2025, Songlin Yang, Yu Zhang
-
-
 import torch.nn as nn
+
 try:
     from torch.distributed import DeviceMesh
-    from torch.distributed.tensor import distribute_module
+    from torch.distributed.tensor import DTensor, distribute_module
     from torch.distributed.tensor.parallel import ParallelStyle
     from torch.distributed.tensor.placement_types import Placement
-    from torch.distributed.tensor import DTensor
 except (ImportError, AttributeError):
     DeviceMesh = None
     distribute_module = None

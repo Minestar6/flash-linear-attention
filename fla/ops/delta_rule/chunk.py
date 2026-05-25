@@ -206,6 +206,8 @@ class ChunkDeltaRuleFunction(torch.autograd.Function):
             dq = l2norm_bwd(q, q_rstd, dq)
             dk = l2norm_bwd(k, k_rstd, dk)
         return dq.to(q.dtype), dk.to(k.dtype), dv.to(v.dtype), db.to(beta.dtype), None, dh0, None, None, None, None
+
+
 def chunk_delta_rule(
     q: torch.Tensor,
     k: torch.Tensor,

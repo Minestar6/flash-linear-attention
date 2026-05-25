@@ -1266,7 +1266,7 @@ class ChunkGLAFunction(torch.autograd.Function):
     @input_guard
     def backward(ctx, do, dht):
         q, k, v, g, g_cumsum, initial_state, A, chunk_indices = (ctx.
-            saved_tensor())
+                                                                 saved_tensor())
         chunk_size, scale, cu_seqlens = ctx.chunk_size, ctx.scale, ctx.cu_seqlens
         dq, dk, dv, dg, dh0 = chunk_gla_bwd(
             q=q,
@@ -1285,6 +1285,8 @@ class ChunkGLAFunction(torch.autograd.Function):
             chunk_indices=chunk_indices,
         )
         return dq.to(q), dk.to(k), dv.to(v), dg, None, dh0, None, None, None
+
+
 def chunk_gla(
     q: torch.Tensor,
     k: torch.Tensor,

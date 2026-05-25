@@ -4,11 +4,9 @@
 
 from __future__ import annotations
 
-import paddleformers
-import paddle
-
 from typing import TYPE_CHECKING
 
+import paddle
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -71,11 +69,11 @@ class LightNetAttention(nn.Module):
         self.head_f_dim = self.expand_ratio
         self.head_i_dim = self.hidden_size // num_heads
         self.q_proj = paddle.compat.nn.Linear(hidden_size, self.key_dim,
-            bias=False)
+                                              bias=False)
         self.k_proj = paddle.compat.nn.Linear(hidden_size, self.key_dim,
-            bias=False)
+                                              bias=False)
         self.v_proj = paddle.compat.nn.Linear(hidden_size, self.value_dim,
-            bias=False)
+                                              bias=False)
 
         if use_short_conv:
             self.conv_size = conv_size
@@ -98,7 +96,7 @@ class LightNetAttention(nn.Module):
                 activation=None,
             )
         self.g_proj = nn.Sequential(paddle.compat.nn.Linear(hidden_size,
-            gate_low_rank_dim, bias=False), paddle.compat.nn.Linear(
+                                                            gate_low_rank_dim, bias=False), paddle.compat.nn.Linear(
             gate_low_rank_dim, hidden_size, bias=False))
         self.g_norm = FusedRMSNormGated(
             hidden_size=hidden_size,
@@ -106,7 +104,7 @@ class LightNetAttention(nn.Module):
             eps=norm_eps,
         )
         self.o_proj = paddle.compat.nn.Linear(self.value_dim, hidden_size,
-            bias=False)
+                                              bias=False)
 
     def forward(
         self,

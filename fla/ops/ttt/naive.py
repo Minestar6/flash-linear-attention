@@ -1,8 +1,7 @@
 import paddle
-# Copyright (c) 2023-2025, Songlin Yang, Yu Zhang, Yuqi Pan
 
+# Copyright (c) 2023-2025, Songlin Yang, Yu Zhang, Yuqi Pan
 import torch
-import torch.nn.functional as F
 
 
 def ttt_linear(

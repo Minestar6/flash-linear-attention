@@ -1,20 +1,20 @@
 # Copyright (c) 2023-2025, Songlin Yang, Yu Zhang
 
 from __future__ import annotations
-import paddleformers
-import paddle
 
 from functools import partial
 from typing import TYPE_CHECKING, Any
 
+import paddle
 import torch
 import torch.nn as nn
+
 from fla.modules.activations import swiglu, swiglu_linear
+
 try:
     from torch.distributed import DeviceMesh
-    from torch.distributed.tensor import Placement, Replicate, Shard, distribute_module
+    from torch.distributed.tensor import DTensor, Placement, Replicate, Shard, distribute_module
     from torch.distributed.tensor.parallel import ParallelStyle
-    from torch.distributed.tensor import DTensor
 except (ImportError, AttributeError):
     DeviceMesh = None
     Placement = None
@@ -56,11 +56,11 @@ class GatedMLP(nn.Module):
         if hidden_act != 'swish':
             raise ValueError(f'Unsupported hidden_act: {hidden_act}')
         self.gate_proj = paddle.compat.nn.Linear(self.hidden_size, self.
-            intermediate_size, bias=False)
+                                                 intermediate_size, bias=False)
         self.up_proj = paddle.compat.nn.Linear(self.hidden_size, self.
-            intermediate_size, bias=False)
+                                               intermediate_size, bias=False)
         self.down_proj = paddle.compat.nn.Linear(self.intermediate_size,
-            self.hidden_size, bias=False)
+                                                 self.hidden_size, bias=False)
         if self.fuse_swiglu:
             self.swiglu_linear = SwiGLULinear()
 

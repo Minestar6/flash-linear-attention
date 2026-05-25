@@ -1,16 +1,15 @@
 from __future__ import annotations
-import logging
-from ...paddle_utils import *
-import paddleformers
-import paddle
 
+import logging
 import math
 import warnings
 from typing import TYPE_CHECKING, Any
 
+import paddle
+import paddleformers
 import torch
 import torch.nn as nn
-from paddleformers.transformers.model_outputs import BaseModelOutputWithPast, CausalLMOutputWithPast
+from paddleformers.transformers.model_outputs import CausalLMOutputWithPast
 
 from fla.layers.path_attn import PaTHAttention
 from fla.models.path_attn.configuration_path_attention import PaTHAttentionConfig
@@ -18,6 +17,8 @@ from fla.models.utils import Cache, FLAGenerationMixin
 from fla.modules import FusedCrossEntropyLoss, FusedLinearCrossEntropyLoss, RMSNorm
 from fla.modules import GatedMLP as PaTHAttentionMLP
 from fla.modules.l2warp import l2_warp
+
+from ...paddle_utils import *
 
 if TYPE_CHECKING:
     from paddleformers.transformers.processing_utils import Unpack
@@ -164,7 +165,7 @@ class PaTHAttentionModel(PaTHAttentionPreTrainedModel):
             for layer_idx in range(config.num_hidden_layers)
         ])
         self.norm = RMSNorm(config
-            .hidden_size, eps=config.norm_eps)
+                            .hidden_size, eps=config.norm_eps)
 
         self.gradient_checkpointing = False
 
@@ -248,9 +249,9 @@ class PaTHAttentionModel(PaTHAttentionPreTrainedModel):
         if not return_dict:
             return tuple(v for v in [hidden_states, next_cache, all_hidden_states, all_attns] if v is not None)
         return (paddleformers.transformers.model_outputs.
-            BaseModelOutputWithPast(last_hidden_state=hidden_states,
-            past_key_values=next_cache, hidden_states=all_hidden_states,
-            attentions=all_attns))
+                BaseModelOutputWithPast(last_hidden_state=hidden_states,
+                                        past_key_values=next_cache, hidden_states=all_hidden_states,
+                                        attentions=all_attns))
 
 
 class PaTHAttentionForCausalLM(PaTHAttentionPreTrainedModel, FLAGenerationMixin):
@@ -262,7 +263,7 @@ class PaTHAttentionForCausalLM(PaTHAttentionPreTrainedModel, FLAGenerationMixin)
         self.model = PaTHAttentionModel(config)
         self.vocab_size = config.vocab_size
         self.lm_head = paddle.compat.nn.Linear(config.hidden_size, config.
-            vocab_size, bias=False)
+                                               vocab_size, bias=False)
         self.criterion = None
 
         # Initialize weights and apply final processing
@@ -285,6 +286,7 @@ class PaTHAttentionForCausalLM(PaTHAttentionPreTrainedModel, FLAGenerationMixin)
 
     def get_decoder(self):
         return self.model
+
     def forward(
         self,
         input_ids: torch.LongTensor = None,

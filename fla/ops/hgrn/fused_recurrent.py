@@ -248,6 +248,8 @@ class FusedRecurrentHGRNFunction(torch.autograd.Function):
             cu_seqlens=cu_seqlens,
         )
         return dx, dg, dh0, None, None
+
+
 def fused_recurrent_hgrn(
     x: torch.Tensor,
     g: torch.Tensor,

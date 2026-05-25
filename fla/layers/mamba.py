@@ -3,18 +3,17 @@
 from __future__ import annotations
 
 import logging
-from ..paddle_utils import *
-import paddleformers
-import paddle
-
 import warnings
 from typing import TYPE_CHECKING
 
+import paddle
 import torch
 import torch.nn as nn
 
 from fla.layers.utils import get_layer_cache, update_layer_cache
 from fla.modules.activations import ACT2FN
+
+from ..paddle_utils import *
 
 with warnings.catch_warnings():
     warnings.simplefilter('ignore')
@@ -85,11 +84,11 @@ class Mamba(nn.Module):
 
         self.layer_idx = layer_idx
         self.in_proj = paddle.compat.nn.Linear(self.hidden_size, self.
-            intermediate_size * 2, bias=use_bias)
+                                               intermediate_size * 2, bias=use_bias)
         self.x_proj = paddle.compat.nn.Linear(self.intermediate_size, self.
-            time_step_rank + self.ssm_state_size * 2, bias=False)
+                                              time_step_rank + self.ssm_state_size * 2, bias=False)
         self.dt_proj = paddle.compat.nn.Linear(self.time_step_rank, self.
-            intermediate_size, bias=True)
+                                               intermediate_size, bias=True)
 
         # S4D real initialization. These are not discretized!
         # The core is to load them, compute the discrete states, then write the updated state. Keeps the memory bounded
@@ -99,7 +98,7 @@ class Mamba(nn.Module):
         self.A_log = nn.Parameter(torch.log(A))
         self.D = nn.Parameter(torch.ones(self.intermediate_size))
         self.out_proj = paddle.compat.nn.Linear(self.intermediate_size,
-            self.hidden_size, bias=use_bias)
+                                                self.hidden_size, bias=use_bias)
 
         if not is_fast_path_available:
             logger.warning_once(
@@ -140,7 +139,7 @@ class Mamba(nn.Module):
         if seq_len >= self.conv_kernel_size:
             return hidden_states[..., -self.conv_kernel_size:].contiguous()
         return paddle.compat.nn.functional.pad(hidden_states, (self.
-            conv_kernel_size - seq_len, 0)).contiguous()
+                                                               conv_kernel_size - seq_len, 0)).contiguous()
 
     def cuda_kernels_forward(
         self,
@@ -233,7 +232,7 @@ class Mamba(nn.Module):
         # 3.a. input varying initialization of time_step, B and C
         ssm_parameters = self.x_proj(hidden_states.transpose(1, 2))
         time_step, B, C = paddle.compat.split(ssm_parameters, [self.time_step_rank,
-            self.ssm_state_size, self.ssm_state_size], dim=-1)
+                                                               self.ssm_state_size, self.ssm_state_size], dim=-1)
         discrete_time_step = self.dt_proj.weight @ time_step.transpose(1, 2)
 
         A = -torch.exp(self.A_log.float())
@@ -331,7 +330,7 @@ class Mamba(nn.Module):
         # 3.a. Selection:  [batch, seq_len, self.time_step_rank + self.ssm_state_size * 2]
         ssm_parameters = self.x_proj(hidden_states.transpose(1, 2))
         time_step, B, C = paddle.compat.split(ssm_parameters, [self.time_step_rank,
-            self.ssm_state_size, self.ssm_state_size], dim=-1)
+                                                               self.ssm_state_size, self.ssm_state_size], dim=-1)
         # [batch, seq_len, intermediate_size]
         discrete_time_step = self.dt_proj(time_step)
         # [batch, intermediate_size, seq_len]

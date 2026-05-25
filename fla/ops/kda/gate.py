@@ -308,6 +308,8 @@ class KDAGateFunction(torch.autograd.Function):
             lower_bound=ctx.lower_bound
         )
         return dg, dA, dbias, None, None
+
+
 def fused_kda_gate(
     g: torch.Tensor,
     A_log: torch.Tensor,

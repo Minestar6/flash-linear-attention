@@ -1,8 +1,7 @@
-import paddle
 # Copyright (c) 2023-2025, Songlin Yang, Yu Zhang
-
 import warnings
 
+import paddle
 import torch
 
 from fla.ops.simple_gla.fused_recurrent import fused_recurrent_simple_gla
@@ -68,8 +67,7 @@ def fused_recurrent_lightning_attn(
             "Please verify your input tensor format matches the expected shape [B, T, H, ...].",
         )
     H = q.shape[2]
-    g_gamma = -(8 / H * (1 - layer_idx / num_layers)) * paddle.to_tensor(data
-        =range(H), dtype=torch.float)
+    g_gamma = -(8 / H * (1 - layer_idx / num_layers)) * paddle.to_tensor(data=range(H), dtype=torch.float)
     return fused_recurrent_simple_gla(
         q=q,
         k=k,

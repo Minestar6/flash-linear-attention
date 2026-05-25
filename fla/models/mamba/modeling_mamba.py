@@ -1,7 +1,5 @@
 import logging
-from ...paddle_utils import *
-import paddleformers
-import paddle
+
 # Copyright 2024 state-spaces/mamba org and HuggingFace Inc. team.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -15,18 +13,21 @@ import paddle
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
 import math
 
+import paddle
+import paddleformers
 import torch
-from torch import nn
 from paddleformers.transformers.model_outputs import BaseModelOutputWithPast, CausalLMOutputWithPast
+from torch import nn
 
 from fla.layers.mamba import Mamba
 from fla.models.mamba.configuration_mamba import MambaConfig
 from fla.models.utils import Cache, FLAGenerationMixin
 from fla.modules import FusedCrossEntropyLoss, FusedLinearCrossEntropyLoss, RMSNorm
 from fla.modules.l2warp import l2_warp
+
+from ...paddle_utils import *
 
 try:
     from transformers.modeling_layers import GradientCheckpointingLayer
@@ -43,13 +44,10 @@ class MambaBlock(GradientCheckpointingLayer):
         self.layer_idx = layer_idx
         self.residual_in_fp32 = config.residual_in_fp32
         self.norm = RMSNorm(config.hidden_size, eps=config.norm_eps, dtype=torch.float32)
-        self.mixer = Mamba(hidden_size=config.hidden_size, state_size=
-            config.state_size, conv_kernel=config.conv_kernel,
-            use_conv_bias=config.use_conv_bias, intermediate_size=config.
-            intermediate_size, dt_rank=config.dt_rank, dt_min=config.dt_min,
-            dt_max=config.dt_max, dt_init=config.dt_init_scheme, dt_scale=
-            config.dt_scale, dt_init_floor=config.dt_init_floor, use_bias=
-            config.use_bias, hidden_act=config.hidden_act, layer_idx=layer_idx)
+        self.mixer = Mamba(hidden_size=config.hidden_size, state_size=config.state_size, conv_kernel=config.conv_kernel,
+                           use_conv_bias=config.use_conv_bias, intermediate_size=config.
+                           intermediate_size, dt_rank=config.dt_rank, dt_min=config.dt_min,
+                           dt_max=config.dt_max, dt_init=config.dt_init_scheme, dt_scale=config.dt_scale, dt_init_floor=config.dt_init_floor, use_bias=config.use_bias, hidden_act=config.hidden_act, layer_idx=layer_idx)
 
     def forward(
         self,
@@ -232,9 +230,8 @@ class MambaModel(MambaPreTrainedModel):
         if not return_dict:
             return tuple(i for i in [hidden_states, past_key_values, all_hidden_states, all_attns] if i is not None)
         return (paddleformers.transformers.model_outputs.
-            BaseModelOutputWithPast(last_hidden_state=hidden_states,
-            past_key_values=past_key_values, hidden_states=
-            all_hidden_states, attentions=all_attns if all_attns else None))
+                BaseModelOutputWithPast(last_hidden_state=hidden_states,
+                                        past_key_values=past_key_values, hidden_states=all_hidden_states, attentions=all_attns if all_attns else None))
 
 
 class MambaForCausalLM(MambaPreTrainedModel, FLAGenerationMixin):
@@ -245,7 +242,7 @@ class MambaForCausalLM(MambaPreTrainedModel, FLAGenerationMixin):
         super().__init__(config)
         self.backbone = MambaModel(config)
         self.lm_head = paddle.compat.nn.Linear(config.hidden_size, config.
-            vocab_size, bias=False)
+                                               vocab_size, bias=False)
         self.criterion = None
 
         # Initialize weights and apply final processing
@@ -262,6 +259,7 @@ class MambaForCausalLM(MambaPreTrainedModel, FLAGenerationMixin):
 
     def set_input_embeddings(self, new_embeddings):
         return self.backbone.set_input_embeddings(new_embeddings)
+
     def forward(
         self,
         input_ids: torch.LongTensor | None = None,

@@ -1,13 +1,12 @@
 from __future__ import annotations
-import logging
-from ...paddle_utils import *
-import paddleformers
-import paddle
 
+import logging
 import math
 import warnings
 from typing import TYPE_CHECKING, Optional
 
+import paddle
+import paddleformers
 import torch
 import torch.nn as nn
 from paddleformers.transformers.model_outputs import BaseModelOutputWithPast, CausalLMOutputWithPast
@@ -19,6 +18,8 @@ from fla.models.utils import Cache, FLAGenerationMixin
 from fla.modules import FusedCrossEntropyLoss, FusedLinearCrossEntropyLoss, RMSNorm
 from fla.modules import GatedMLP as KDAMLP
 from fla.modules.l2warp import l2_warp
+
+from ...paddle_utils import *
 
 if TYPE_CHECKING:
     from paddleformers.transformers.processing_utils import Unpack
@@ -52,13 +53,13 @@ class KDABlock(GradientCheckpointingLayer):
             )
         else:
             self.attn = KimiDeltaAttention(mode=config.attn_mode,
-                hidden_size=config.hidden_size, expand_v=config.expand_v,
-                head_dim=config.head_dim, num_heads=config.num_heads,
-                num_v_heads=config.num_v_heads, use_short_conv=config.
-                use_short_conv, allow_neg_eigval=config.allow_neg_eigval,
-                safe_gate=config.safe_gate, lower_bound=config.lower_bound,
-                conv_size=config.conv_size, norm_eps=config.norm_eps,
-                layer_idx=layer_idx)
+                                           hidden_size=config.hidden_size, expand_v=config.expand_v,
+                                           head_dim=config.head_dim, num_heads=config.num_heads,
+                                           num_v_heads=config.num_v_heads, use_short_conv=config.
+                                           use_short_conv, allow_neg_eigval=config.allow_neg_eigval,
+                                           safe_gate=config.safe_gate, lower_bound=config.lower_bound,
+                                           conv_size=config.conv_size, norm_eps=config.norm_eps,
+                                           layer_idx=layer_idx)
         self.mlp_norm = RMSNorm(
             config.hidden_size, eps=config.norm_eps)
         self.mlp = KDAMLP(
@@ -119,14 +120,13 @@ class KDAPreTrainedModel(paddleformers.transformers.PretrainedModel):
         num_residuals_per_layer: int = 2,
     ):
         if isinstance(module, KimiDeltaAttention) and next(module.parameters()
-            ).device.type != 'meta':
+                                                           ).device.type != 'meta':
             with torch.no_grad():
                 if not getattr(module.A_log, '_is_hf_initialized', False):
                     if module.safe_gate:
                         module.A_log.zero_()
                     else:
-                        module.A_log.copy_(nn.init.uniform_(module.A_log, a
-                            =1, b=16).log())
+                        module.A_log.copy_(nn.init.uniform_(module.A_log, a=1, b=16).log())
                 if not getattr(module.dt_bias, '_is_hf_initialized', False):
                     dt = torch.exp(
                         nn.init.uniform_(module.dt_bias) * (math.log(0.1) - math.log(0.001)) + math.log(0.001),
@@ -181,7 +181,7 @@ class KDAModel(KDAPreTrainedModel):
         self.embeddings = nn.Embedding(config.vocab_size, config.hidden_size, self.padding_idx)
         self.layers = nn.ModuleList([KDABlock(config, layer_idx) for layer_idx in range(config.num_hidden_layers)])
         self.norm = RMSNorm(config
-            .hidden_size, eps=config.norm_eps)
+                            .hidden_size, eps=config.norm_eps)
 
         self.gradient_checkpointing = False
 
@@ -253,9 +253,8 @@ class KDAModel(KDAPreTrainedModel):
         if not return_dict:
             return tuple(i for i in [hidden_states, past_key_values, all_hidden_states, all_attns] if i is not None)
         return (paddleformers.transformers.model_outputs.
-            BaseModelOutputWithPast(last_hidden_state=hidden_states,
-            past_key_values=past_key_values, hidden_states=
-            all_hidden_states, attentions=all_attns))
+                BaseModelOutputWithPast(last_hidden_state=hidden_states,
+                                        past_key_values=past_key_values, hidden_states=all_hidden_states, attentions=all_attns))
 
 
 class KDAForCausalLM(KDAPreTrainedModel, FLAGenerationMixin):
@@ -266,7 +265,7 @@ class KDAForCausalLM(KDAPreTrainedModel, FLAGenerationMixin):
         self.model = KDAModel(config)
         self.vocab_size = config.vocab_size
         self.lm_head = paddle.compat.nn.Linear(config.hidden_size, config.
-            vocab_size, bias=False)
+                                               vocab_size, bias=False)
         self.criterion = None
 
         # Initialize weights and apply final processing
@@ -304,6 +303,7 @@ class KDAForCausalLM(KDAPreTrainedModel, FLAGenerationMixin):
                 )
             else:
                 raise exception
+
     def forward(
         self,
         input_ids: torch.LongTensor = None,

@@ -7,13 +7,11 @@
 # Code adapted from https://github.com/ridgerchu/matmulfreellm/
 
 from __future__ import annotations
-import paddle
 
 import math
 
+import paddle
 import torch
-import torch.nn as nn
-import torch.nn.functional as F
 import triton
 import triton.language as tl
 
@@ -419,7 +417,7 @@ class LayerNormLinearQuantFn(torch.autograd.Function):
         linear_weight = weight_quant(linear_weight).to(dtype)
         linear_bias = linear_bias.to(dtype) if linear_bias is not None else None
         out = paddle.compat.nn.functional.linear(y.to(linear_weight.dtype),
-            linear_weight, linear_bias)
+                                                 linear_weight, linear_bias)
         # We don't store y, will be recomputed in the backward pass to save memory
         ctx.save_for_backward(residual_out, norm_weight, norm_bias, linear_weight, mean, rstd)
         ctx.x_shape_og = x_shape_og
@@ -435,7 +433,7 @@ class LayerNormLinearQuantFn(torch.autograd.Function):
     @input_guard
     def backward(ctx, dout, *args):
         x, norm_weight, norm_bias, linear_weight, mean, rstd = (ctx.
-            saved_tensor())
+                                                                saved_tensor())
         dout = dout.reshape(-1, dout.shape[-1])
         dy = paddle.compat.nn.functional.linear(dout, linear_weight.t())
         dlinear_bias = None if ctx.linear_bias_is_none else dout.sum(0)

@@ -1,5 +1,6 @@
-import paddleformers
 import warnings
+
+import paddleformers
 
 
 class Mamba2Config(paddleformers.transformers.PretrainedConfig):
@@ -72,20 +73,20 @@ class Mamba2Config(paddleformers.transformers.PretrainedConfig):
 
     model_type = "mamba2"
 
-    def __init__(self, head_dim: int=64, vocab_size: int=32000, hidden_size:
-        int=2048, state_size: int=128, num_hidden_layers: int=48, norm_eps:
-        float=1e-05, pad_token_id: int=0, bos_token_id: int=1, eos_token_id:
-        int=2, expand: int=2, conv_kernel: int=4, n_groups: int=1, use_bias:
-        bool=False, use_conv_bias: bool=True, conv_init: (float | None)=
-        None, A_init_range: tuple[float, float]=(1, 16), D_has_hdim: bool=
-        False, hidden_act: str='silu', initializer_range: float=0.02,
-        residual_in_fp32: bool=True, dt_min: float=0.001, dt_max: float=0.1,
-        dt_init_floor: float=0.0001, dt_limit: tuple[float, float]=(0.0,
-        float('inf')), rescale_prenorm_residual: bool=True, use_cache: bool
-        =True, rmsnorm: bool=True, norm_before_gate: bool=False, chunk_size:
-        int=256, fuse_norm: bool=True, fuse_cross_entropy: bool=True,
-        fuse_linear_cross_entropy: bool=False, use_l2warp: bool=False,
-        tie_word_embeddings: bool=False, **kwargs):
+    def __init__(self, head_dim: int = 64, vocab_size: int = 32000, hidden_size:
+                 int = 2048, state_size: int = 128, num_hidden_layers: int = 48, norm_eps:
+                 float = 1e-05, pad_token_id: int = 0, bos_token_id: int = 1, eos_token_id:
+                 int = 2, expand: int = 2, conv_kernel: int = 4, n_groups: int = 1, use_bias:
+                 bool = False, use_conv_bias: bool = True, conv_init: (float | None) =
+                 None, A_init_range: tuple[float, float] = (1, 16), D_has_hdim: bool =
+                 False, hidden_act: str = 'silu', initializer_range: float = 0.02,
+                 residual_in_fp32: bool = True, dt_min: float = 0.001, dt_max: float = 0.1,
+                 dt_init_floor: float = 0.0001, dt_limit: tuple[float, float] = (0.0,
+                                                                                 float('inf')), rescale_prenorm_residual: bool = True, use_cache: bool
+                 = True, rmsnorm: bool = True, norm_before_gate: bool = False, chunk_size:
+                 int = 256, fuse_norm: bool = True, fuse_cross_entropy: bool = True,
+                 fuse_linear_cross_entropy: bool = False, use_l2warp: bool = False,
+                 tie_word_embeddings: bool = False, **kwargs):
         self.vocab_size = vocab_size
         self.hidden_size = hidden_size
         self.state_size = state_size
@@ -124,7 +125,7 @@ class Mamba2Config(paddleformers.transformers.PretrainedConfig):
         self.use_l2warp = use_l2warp
         self.tie_word_embeddings = tie_word_embeddings
         if len(A_init_range) != 2 or A_init_range[0] <= 0 or A_init_range[0
-            ] > A_init_range[1]:
+                                                                          ] > A_init_range[1]:
             raise ValueError(
                 '`A_init_range` must be a positive (min, max) pair.')
         if dt_min <= 0 or dt_max < dt_min:

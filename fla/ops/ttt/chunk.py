@@ -1,10 +1,8 @@
-import paddle
 # Copyright (c) 2023-2025, Songlin Yang, Yu Zhang, Yuqi Pan
-
 import warnings
 
+import paddle
 import torch
-import torch.nn.functional as F
 import triton
 import triton.language as tl
 
@@ -1028,8 +1026,8 @@ def chunk_ttt_linear_bwd_norm_ref(
     pad_len = (BT - (T % BT)) % BT
     if pad_len > 0:
         q, k, v, v_new, kh, y, eta, dv_new, do = [paddle.compat.nn.
-            functional.pad(x, (0, 0, 0, pad_len)) for x in [q, k, v, v_new,
-            kh, y, eta, dv_new, do]]
+                                                  functional.pad(x, (0, 0, 0, pad_len)) for x in [q, k, v, v_new,
+                                                                                                  kh, y, eta, dv_new, do]]
         eta[:, :, -1, :] = eta[:, :, -(pad_len+1), :]
     # [NT, B, H, BT, D]
     q, k, v, v_new, kh, y, eta, dv_new, do = [
@@ -1334,7 +1332,7 @@ class ChunkTTTLinearFunction(torch.autograd.Function):
     @autocast_custom_bwd
     def backward(ctx, do, dht, dhbt):
         (q, k, v, eta, w, b, initial_state, initial_state_bias, chunk_indices
-            ) = ctx.saved_tensor()
+         ) = ctx.saved_tensor()
         dq, dk, dv, de, dw, db, dh0, dhb0 = chunk_ttt_linear_bwd(
             q=q,
             k=k,

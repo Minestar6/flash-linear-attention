@@ -1,8 +1,7 @@
 from __future__ import annotations
+
 import logging
-from ...paddle_utils import *
-import paddleformers
-import paddle
+
 # Copyright 2024 state-spaces/mamba2 org and HuggingFace Inc. team.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -16,11 +15,15 @@ import paddle
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
 import math
 
+import paddle
+import paddleformers
 import torch
 from torch import nn
+
+from ...paddle_utils import *
+
 try:
     from torch.distributed._tensor.placement_types import Placement, Replicate
     from torch.distributed.device_mesh import DeviceMesh
@@ -77,16 +80,16 @@ class Mamba2Block(GradientCheckpointingLayer):
         self.residual_in_fp32 = config.residual_in_fp32
         self.norm = RMSNorm(config.hidden_size, eps=config.norm_eps, dtype=torch.float32)
         self.mixer = Mamba2(num_heads=config.num_heads, head_dim=config.
-            head_dim, hidden_size=config.hidden_size, state_size=config.
-            state_size, expand=config.expand, n_groups=config.n_groups,
-            conv_kernel=config.conv_kernel, conv_init=config.conv_init,
-            use_conv_bias=config.use_conv_bias, hidden_act=config.
-            hidden_act, A_init_range=config.A_init_range, D_has_hdim=config
-            .D_has_hdim, rmsnorm=config.rmsnorm, norm_before_gate=config.
-            norm_before_gate, chunk_size=config.chunk_size, dt_limit=config
-            .dt_limit, dt_min=config.dt_min, dt_max=config.dt_max,
-            dt_init_floor=config.dt_init_floor, use_bias=config.use_bias,
-            norm_eps=config.norm_eps, layer_idx=layer_idx)
+                            head_dim, hidden_size=config.hidden_size, state_size=config.
+                            state_size, expand=config.expand, n_groups=config.n_groups,
+                            conv_kernel=config.conv_kernel, conv_init=config.conv_init,
+                            use_conv_bias=config.use_conv_bias, hidden_act=config.
+                            hidden_act, A_init_range=config.A_init_range, D_has_hdim=config
+                            .D_has_hdim, rmsnorm=config.rmsnorm, norm_before_gate=config.
+                            norm_before_gate, chunk_size=config.chunk_size, dt_limit=config
+                            .dt_limit, dt_min=config.dt_min, dt_max=config.dt_max,
+                            dt_init_floor=config.dt_init_floor, use_bias=config.use_bias,
+                            norm_eps=config.norm_eps, layer_idx=layer_idx)
 
     def forward(
         self,
@@ -297,9 +300,8 @@ class Mamba2Model(Mamba2PreTrainedModel):
         if not return_dict:
             return tuple(i for i in [hidden_states, past_key_values, all_hidden_states, all_attns] if i is not None)
         return (paddleformers.transformers.model_outputs.
-            BaseModelOutputWithPast(last_hidden_state=hidden_states,
-            past_key_values=past_key_values, hidden_states=
-            all_hidden_states, attentions=all_attns))
+                BaseModelOutputWithPast(last_hidden_state=hidden_states,
+                                        past_key_values=past_key_values, hidden_states=all_hidden_states, attentions=all_attns))
 
 
 class Mamba2ForCausalLM(Mamba2PreTrainedModel, FLAGenerationMixin):
@@ -309,7 +311,7 @@ class Mamba2ForCausalLM(Mamba2PreTrainedModel, FLAGenerationMixin):
         super().__init__(config)
         self.backbone = Mamba2Model(config)
         self.lm_head = paddle.compat.nn.Linear(config.hidden_size, config.
-            vocab_size, bias=False)
+                                               vocab_size, bias=False)
         self.criterion = None
 
         # Initialize weights and apply final processing
@@ -326,6 +328,7 @@ class Mamba2ForCausalLM(Mamba2PreTrainedModel, FLAGenerationMixin):
 
     def set_input_embeddings(self, new_embeddings):
         return self.backbone.set_input_embeddings(new_embeddings)
+
     def forward(
         self,
         input_ids: torch.LongTensor | None = None,

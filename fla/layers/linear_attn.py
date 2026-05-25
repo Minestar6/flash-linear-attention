@@ -2,13 +2,11 @@
 
 from __future__ import annotations
 
-import paddle
-
 from typing import TYPE_CHECKING
 
+import paddle
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 from einops import rearrange, repeat
 
 from fla.layers.utils import get_layer_cache, update_layer_cache
@@ -103,11 +101,11 @@ class LinearAttention(nn.Module):
         else:
             raise NotImplementedError(f"Not supported feature map `{feature_map}`.")
         self.q_proj = paddle.compat.nn.Linear(hidden_size, self.key_dim,
-            bias=False)
+                                              bias=False)
         self.k_proj = paddle.compat.nn.Linear(hidden_size, self.
-            key_dim_per_group, bias=False)
+                                              key_dim_per_group, bias=False)
         self.v_proj = paddle.compat.nn.Linear(hidden_size, self.
-            value_dim_per_group, bias=False)
+                                              value_dim_per_group, bias=False)
 
         if output_norm == 'rmsnorm':
             self.norm = RMSNorm(hidden_size=self.head_v_dim, elementwise_affine=elementwise_affine,
@@ -117,7 +115,7 @@ class LinearAttention(nn.Module):
         else:
             raise NotImplementedError(f"Not supported output norm `{output_norm}`.")
         self.o_proj = paddle.compat.nn.Linear(self.value_dim, hidden_size,
-            bias=False)
+                                              bias=False)
 
         self.norm_q = norm_q
         self.norm_k = norm_k

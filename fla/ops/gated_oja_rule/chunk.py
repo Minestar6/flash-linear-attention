@@ -282,6 +282,8 @@ class ChunkOJAFunction(torch.autograd.Function):
         if ctx.use_k_l2norm:
             dk = l2norm_bwd(k, k_rstd, dk)
         return dq.to(q), dk.to(k), dv.to(v), dg.to(gv), db.to(beta), None, dh0, None, None, None, None, None
+
+
 def chunk_gated_oja_rule(
     q: torch.Tensor,
     k: torch.Tensor,

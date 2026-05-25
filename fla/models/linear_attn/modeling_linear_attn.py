@@ -1,13 +1,12 @@
 from __future__ import annotations
-import logging
-from ...paddle_utils import *
-import paddleformers
-import paddle
 
+import logging
 import math
 import warnings
 from typing import TYPE_CHECKING, Optional
 
+import paddle
+import paddleformers
 import torch
 import torch.nn as nn
 from paddleformers.transformers.model_outputs import BaseModelOutputWithPast, CausalLMOutputWithPast
@@ -19,6 +18,8 @@ from fla.models.utils import Cache, FLAGenerationMixin
 from fla.modules import FusedCrossEntropyLoss, FusedLinearCrossEntropyLoss, RMSNorm
 from fla.modules import GatedMLP as LinearAttentionMLP
 from fla.modules.l2warp import l2_warp
+
+from ...paddle_utils import *
 
 if TYPE_CHECKING:
     from paddleformers.transformers.processing_utils import Unpack
@@ -112,7 +113,7 @@ class LinearAttentionBlock(GradientCheckpointingLayer):
 
 
 class LinearAttentionPreTrainedModel(paddleformers.transformers.PretrainedModel
-    ):
+                                     ):
 
     config_class = LinearAttentionConfig
     base_model_prefix = 'model'
@@ -177,7 +178,7 @@ class LinearAttentionModel(LinearAttentionPreTrainedModel):
         self.embeddings = nn.Embedding(config.vocab_size, config.hidden_size, self.padding_idx)
         self.layers = nn.ModuleList([LinearAttentionBlock(config, layer_idx) for layer_idx in range(config.num_hidden_layers)])
         self.norm = RMSNorm(config
-            .hidden_size, eps=config.norm_eps)
+                            .hidden_size, eps=config.norm_eps)
 
         self.gradient_checkpointing = False
 
@@ -251,9 +252,8 @@ class LinearAttentionModel(LinearAttentionPreTrainedModel):
         if not return_dict:
             return tuple(i for i in [hidden_states, past_key_values, all_hidden_states, all_attns] if i is not None)
         return (paddleformers.transformers.model_outputs.
-            BaseModelOutputWithPast(last_hidden_state=hidden_states,
-            past_key_values=past_key_values, hidden_states=
-            all_hidden_states, attentions=all_attns))
+                BaseModelOutputWithPast(last_hidden_state=hidden_states,
+                                        past_key_values=past_key_values, hidden_states=all_hidden_states, attentions=all_attns))
 
 
 class LinearAttentionForCausalLM(LinearAttentionPreTrainedModel, FLAGenerationMixin):
@@ -265,7 +265,7 @@ class LinearAttentionForCausalLM(LinearAttentionPreTrainedModel, FLAGenerationMi
         self.model = LinearAttentionModel(config)
         self.vocab_size = config.vocab_size
         self.lm_head = paddle.compat.nn.Linear(config.hidden_size, config.
-            vocab_size, bias=False)
+                                               vocab_size, bias=False)
         self.criterion = None
 
         # Initialize weights and apply final processing
@@ -303,6 +303,7 @@ class LinearAttentionForCausalLM(LinearAttentionPreTrainedModel, FLAGenerationMi
                 )
             else:
                 raise exception
+
     def forward(
         self,
         input_ids: torch.LongTensor = None,

@@ -1,6 +1,6 @@
-from ...paddle_utils import *
-import paddle
+import warnings
 
+import paddle
 import torch
 import triton
 import triton.language as tl
@@ -12,6 +12,8 @@ from fla.ops.utils import prepare_chunk_indices, prepare_chunk_offsets, prepare_
 from fla.ops.utils.op import exp, log
 from fla.ops.utils.pooling import mean_pooling
 from fla.utils import autocast_custom_bwd, autocast_custom_fwd, autotune_cache_kwargs, check_shared_mem, contiguous
+
+from ...paddle_utils import *
 
 
 @triton.heuristics({
@@ -495,7 +497,7 @@ def parallel_nsa_topk(
     H = k.shape[2]
     G = HQ // H
     S = block_counts if isinstance(block_counts, int) else block_counts._max(
-        ).item()
+    ).item()
     S = triton.next_power_of_2(S)
     # here we set BC = BS, but beware that they can be chosen separately if required
     BC = BS = block_size
@@ -704,6 +706,8 @@ def parallel_nsa_bwd(
     )
     dk = dk.sum(0)
     return dq, dk, dv
+
+
 class ParallelNSAFunction(torch.autograd.Function):
 
     @staticmethod
@@ -852,9 +856,9 @@ def parallel_nsa(
         if cu_seqlens is not None:
             max_seqlen = q.shape[1]
             o_swa = paddle.nn.functional.flash_attention.flash_attn_varlen_func(q.squeeze(0), k.
-                squeeze(0), v.squeeze(0), cu_seqlens_q=cu_seqlens,
-                cu_seqlens_k=cu_seqlens, max_seqlen_q=max_seqlen,
-                max_seqlen_k=max_seqlen, causal=True).unsqueeze(0)
+                                                                                squeeze(0), v.squeeze(0), cu_seqlens_q=cu_seqlens,
+                                                                                cu_seqlens_k=cu_seqlens, max_seqlen_q=max_seqlen,
+                                                                                max_seqlen_k=max_seqlen, causal=True).unsqueeze(0)
         else:
             o_swa = paddle.nn.functional.flash_attention.flash_attention(q, k, v, causal=True)[0]
         orig_dtype = o.dtype

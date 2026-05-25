@@ -7,7 +7,6 @@ lists to minimize cudaStreamSynchronize calls.
 """
 
 from __future__ import annotations
-from ...paddle_utils import *
 
 import logging
 import weakref
@@ -21,6 +20,8 @@ from fla.ops.common.chunk_delta_h import chunk_gated_delta_rule_fwd_kernel_h_blo
 from fla.ops.cp.chunk_delta_h import pre_process_fwd_kernel_merged
 from fla.ops.utils.index import prepare_chunk_indices, prepare_chunk_offsets
 from fla.utils import get_multiprocessor_count
+
+from ...paddle_utils import *
 
 logger = logging.getLogger(__name__)
 

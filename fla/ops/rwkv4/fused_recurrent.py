@@ -6,7 +6,7 @@ import torch
 import triton
 import triton.language as tl
 from torch import Tensor
-from torch.autograd.function import Function, FunctionCtx, once_differentiable
+from torch.autograd.function import Function, FunctionCtx
 
 from fla.ops.utils.op import exp
 from fla.utils import input_guard

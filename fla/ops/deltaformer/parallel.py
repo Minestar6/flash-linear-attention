@@ -1,16 +1,15 @@
-from ...paddle_utils import *
-import paddle
 # Copyright (c) 2023-2025, Songlin Yang, Yu Zhang
-
 import math
 
+import paddle
 import torch
 import triton
 import triton.language as tl
 
-from . import invcum
-
 from fla.layers.utils import pad_input, unpad_input
+
+from ...paddle_utils import *
+from . import invcum
 
 BLOCK_SIZE_C = 512
 
@@ -950,15 +949,14 @@ def deltaformer_attn(
         cu_seqlens_q, cu_seqlens_k = cu_seqlens_lens
         max_seqlen_q, max_seqlen_k = max_seq_lens
         o = paddle.nn.functional.flash_attention.flash_attn_varlen_func(q_padded, k_padded, u_padded,
-            cu_seqlens_q=cu_seqlens_q, cu_seqlens_k=cu_seqlens_k,
-            max_seqlen_q=max_seqlen_q, max_seqlen_k=max_seqlen_k, causal=
-            True)
+                                                                        cu_seqlens_q=cu_seqlens_q, cu_seqlens_k=cu_seqlens_k,
+                                                                        max_seqlen_q=max_seqlen_q, max_seqlen_k=max_seqlen_k, causal=True)
         o = pad_input(o, indices_q, B, T)
     elif cu_seqlens is not None:
         max_seqlen = int((cu_seqlens[1:] - cu_seqlens[:-1])._max().item())
         o = paddle.nn.functional.flash_attention.flash_attn_varlen_func(q.squeeze(0), k.squeeze(0), u
-            .squeeze(0), cu_seqlens_q=cu_seqlens, cu_seqlens_k=cu_seqlens,
-            max_seqlen_q=max_seqlen, max_seqlen_k=max_seqlen, causal=True).unsqueeze(0)
+                                                                        .squeeze(0), cu_seqlens_q=cu_seqlens, cu_seqlens_k=cu_seqlens,
+                                                                        max_seqlen_q=max_seqlen, max_seqlen_k=max_seqlen, causal=True).unsqueeze(0)
     else:
         o = paddle.nn.functional.flash_attention.flash_attention(q, k, u, causal=True)[0]
 

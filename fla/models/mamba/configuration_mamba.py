@@ -1,4 +1,3 @@
-import paddleformers
 # Copyright 2024 The HuggingFace Inc. team.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -12,9 +11,10 @@ import paddleformers
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
 import math
 import warnings
+
+import paddleformers
 
 
 class MambaConfig(paddleformers.transformers.PretrainedConfig):
@@ -98,18 +98,18 @@ class MambaConfig(paddleformers.transformers.PretrainedConfig):
 
     model_type = "mamba"
 
-    def __init__(self, vocab_size: int=32000, hidden_size: int=2048,
-        state_size: int=16, num_hidden_layers: int=48, norm_eps=1e-05,
-        pad_token_id: int=0, bos_token_id: int=1, eos_token_id: int=2,
-        expand: int=2, conv_kernel: int=4, use_bias: bool=False,
-        use_conv_bias: bool=True, hidden_act: str='silu', initializer_range:
-        float=0.02, residual_in_fp32: bool=False, dt_rank: (str | int)=
-        'auto', dt_scale: float=1.0, dt_min: float=0.001, dt_max: float=0.1,
-        dt_init_scheme: str='random', dt_init_floor: float=0.0001,
-        rescale_prenorm_residual: bool=False, use_cache: bool=True,
-        fuse_norm: bool=True, fuse_cross_entropy: bool=True,
-        fuse_linear_cross_entropy: bool=False, use_l2warp: bool=False,
-        tie_word_embeddings: bool=False, **kwargs):
+    def __init__(self, vocab_size: int = 32000, hidden_size: int = 2048,
+                 state_size: int = 16, num_hidden_layers: int = 48, norm_eps=1e-05,
+                 pad_token_id: int = 0, bos_token_id: int = 1, eos_token_id: int = 2,
+                 expand: int = 2, conv_kernel: int = 4, use_bias: bool = False,
+                 use_conv_bias: bool = True, hidden_act: str = 'silu', initializer_range:
+                 float = 0.02, residual_in_fp32: bool = False, dt_rank: (str | int) =
+                 'auto', dt_scale: float = 1.0, dt_min: float = 0.001, dt_max: float = 0.1,
+                 dt_init_scheme: str = 'random', dt_init_floor: float = 0.0001,
+                 rescale_prenorm_residual: bool = False, use_cache: bool = True,
+                 fuse_norm: bool = True, fuse_cross_entropy: bool = True,
+                 fuse_linear_cross_entropy: bool = False, use_l2warp: bool = False,
+                 tie_word_embeddings: bool = False, **kwargs):
         self.vocab_size = vocab_size
         self.hidden_size = hidden_size
         self.state_size = state_size
@@ -126,7 +126,7 @@ class MambaConfig(paddleformers.transformers.PretrainedConfig):
         self.hidden_act = hidden_act
         self.initializer_range = initializer_range
         self.dt_rank = math.ceil(self.hidden_size / 16
-            ) if dt_rank == 'auto' else dt_rank
+                                 ) if dt_rank == 'auto' else dt_rank
         self.dt_scale = dt_scale
         self.dt_min = dt_min
         self.dt_max = dt_max
