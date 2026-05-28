@@ -186,8 +186,7 @@ class ChunkDeltaRuleFunction(torch.autograd.Function):
         do: torch.Tensor,
         dht: torch.Tensor,
     ):
-        (q, q_rstd, k, k_rstd, v, beta, A, initial_state, cu_seqlens,
-            chunk_indices) = ctx.saved_tensor()
+        q, q_rstd, k, k_rstd, v, beta, A, initial_state, cu_seqlens, chunk_indices = ctx.saved_tensor()
 
         dq, dk, dv, db, dh0 = chunk_delta_rule_bwd(
             q=q,

@@ -98,18 +98,38 @@ class MambaConfig(paddleformers.transformers.PretrainedConfig):
 
     model_type = "mamba"
 
-    def __init__(self, vocab_size: int = 32000, hidden_size: int = 2048,
-                 state_size: int = 16, num_hidden_layers: int = 48, norm_eps=1e-05,
-                 pad_token_id: int = 0, bos_token_id: int = 1, eos_token_id: int = 2,
-                 expand: int = 2, conv_kernel: int = 4, use_bias: bool = False,
-                 use_conv_bias: bool = True, hidden_act: str = 'silu', initializer_range:
-                 float = 0.02, residual_in_fp32: bool = False, dt_rank: (str | int) =
-                 'auto', dt_scale: float = 1.0, dt_min: float = 0.001, dt_max: float = 0.1,
-                 dt_init_scheme: str = 'random', dt_init_floor: float = 0.0001,
-                 rescale_prenorm_residual: bool = False, use_cache: bool = True,
-                 fuse_norm: bool = True, fuse_cross_entropy: bool = True,
-                 fuse_linear_cross_entropy: bool = False, use_l2warp: bool = False,
-                 tie_word_embeddings: bool = False, **kwargs):
+    def __init__(
+        self,
+        vocab_size: int = 32000,
+        hidden_size: int = 2048,
+        state_size: int = 16,
+        num_hidden_layers: int = 48,
+        norm_eps=1e-5,
+        pad_token_id: int = 0,
+        bos_token_id: int = 1,
+        eos_token_id: int = 2,
+        expand: int = 2,
+        conv_kernel: int = 4,
+        use_bias: bool = False,
+        use_conv_bias: bool = True,
+        hidden_act: str = "silu",
+        initializer_range: float = 0.02,
+        residual_in_fp32: bool = False,
+        time_step_rank: str = "auto",
+        time_step_scale: float = 1.0,
+        time_step_min: float = 0.001,
+        time_step_max: float = 0.1,
+        time_step_init_scheme: str = "random",
+        time_step_floor: float = 1e-4,
+        rescale_prenorm_residual: bool = False,
+        use_cache: bool = True,
+        fuse_norm: bool = True,
+        fuse_cross_entropy: bool = True,
+        fuse_linear_cross_entropy: bool = False,
+        use_l2warp: bool = False,
+        tie_word_embeddings: bool = False,
+        **kwargs,
+    ):
         self.vocab_size = vocab_size
         self.hidden_size = hidden_size
         self.state_size = state_size
@@ -125,13 +145,12 @@ class MambaConfig(paddleformers.transformers.PretrainedConfig):
         self.use_conv_bias = use_conv_bias
         self.hidden_act = hidden_act
         self.initializer_range = initializer_range
-        self.dt_rank = math.ceil(self.hidden_size / 16
-                                 ) if dt_rank == 'auto' else dt_rank
-        self.dt_scale = dt_scale
-        self.dt_min = dt_min
-        self.dt_max = dt_max
-        self.dt_init_scheme = dt_init_scheme
-        self.dt_init_floor = dt_init_floor
+        self.time_step_rank = math.ceil(self.hidden_size / 16) if time_step_rank == "auto" else time_step_rank
+        self.time_step_scale = time_step_scale
+        self.time_step_min = time_step_min
+        self.time_step_max = time_step_max
+        self.time_step_init_scheme = time_step_init_scheme
+        self.time_step_floor = time_step_floor
         self.rescale_prenorm_residual = rescale_prenorm_residual
         self.residual_in_fp32 = residual_in_fp32
         self.use_cache = use_cache

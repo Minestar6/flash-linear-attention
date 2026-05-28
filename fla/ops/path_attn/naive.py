@@ -48,8 +48,7 @@ def naive_path_attn(
     b, h, l, _ = q.shape
     if l % BT != 0:
         padding_size = BT - l % BT
-        q, k, w = map(lambda x: paddle.compat.nn.functional.pad(x, (0, 0, 0,
-                                                                    padding_size)), [q, k, w])
+        q, k, w = map(lambda x: paddle.compat.nn.functional.pad(x, (0, 0, 0, padding_size)), [q, k, w])
         beta = paddle.compat.nn.functional.pad(beta, (0, padding_size))
 
     seq_len = q.shape[2]

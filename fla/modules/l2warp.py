@@ -28,7 +28,7 @@ class L2Wrap(torch.autograd.Function):
     @staticmethod
     def backward(ctx, grad_output):
         maxx, ids = ctx.saved_tensor()
-        glogits = torch.zeros(ctx.logits_shape, device=grad_output.device,
+        glogits = torch.zeros(ctx.logits_shape, device=grad_output.device, 
                               dtype=grad_output.dtype)
         glogits.scatter_(-1, ids, maxx)
         return grad_output, glogits, None

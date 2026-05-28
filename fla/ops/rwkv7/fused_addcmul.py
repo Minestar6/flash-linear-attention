@@ -1,4 +1,5 @@
 # Copyright (c) 2023-2025, Songlin Yang, Yu Zhang
+
 import logging
 import os
 import sys
@@ -286,5 +287,4 @@ def torch_addcmul_rwkv7(hidden_states, delta, xr, xw, xk, xv, xa, xg=None):
         oxg = paddle.add(hidden_states, 1 * delta * xg)
         return oxr, oxw, oxk, oxv, oxa, oxg
     else:
-        return oxr, oxw, oxk, oxv, oxa, None
         return oxr, oxw, oxk, oxv, oxa, None

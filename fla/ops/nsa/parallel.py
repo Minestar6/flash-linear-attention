@@ -496,8 +496,7 @@ def parallel_nsa_topk(
     B, T, HQ, K = q.shape
     H = k.shape[2]
     G = HQ // H
-    S = block_counts if isinstance(block_counts, int) else block_counts._max(
-    ).item()
+    S = block_counts if isinstance(block_counts, int) else block_counts._max().item()
     S = triton.next_power_of_2(S)
     # here we set BC = BS, but beware that they can be chosen separately if required
     BC = BS = block_size
@@ -855,12 +854,19 @@ def parallel_nsa(
     if window_size > 0:
         if cu_seqlens is not None:
             max_seqlen = q.shape[1]
-            o_swa = paddle.nn.functional.flash_attention.flash_attn_varlen_func(q.squeeze(0), k.
-                                                                                squeeze(0), v.squeeze(0), cu_seqlens_q=cu_seqlens,
-                                                                                cu_seqlens_k=cu_seqlens, max_seqlen_q=max_seqlen,
-                                                                                max_seqlen_k=max_seqlen, causal=True).unsqueeze(0)
+            o_swa = paddle.nn.functional.flash_attention.flash_attn_varlen_func(
+                q.squeeze(0), k.squeeze(0), v.squeeze(0),
+                cu_seqlens_q=cu_seqlens,
+                cu_seqlens_k=cu_seqlens,
+                max_seqlen_q=max_seqlen,
+                max_seqlen_k=max_seqlen,
+                causal=True,
+            ).unsqueeze(0)
         else:
-            o_swa = paddle.nn.functional.flash_attention.flash_attention(q, k, v, causal=True)[0]
+            o_swa = paddle.nn.functional.flash_attention.flash_attention(
+                q, k, v,
+                causal=True,
+            )[0]
         orig_dtype = o.dtype
         o = (o.astype('float32') + o_swa.astype('float32') * g_swa.unsqueeze(-1).astype('float32')).astype(orig_dtype)
     return o

@@ -316,8 +316,11 @@ class LogLinearMamba2(nn.Module):
             + self.conv_dim
             + self.num_heads * (self.num_lambda_dims + 1)
         )
-        self.in_proj = paddle.compat.nn.Linear(self.hidden_size,
-                                               projection_size, bias=use_bias)
+        self.in_proj = paddle.compat.nn.Linear(
+            self.hidden_size,
+            projection_size,
+            bias=use_bias,
+        )
         # selective projection used to make dt, B and C input dependant
 
         # time step projection (discretization)
@@ -340,8 +343,10 @@ class LogLinearMamba2(nn.Module):
         )
         self.D = nn.Parameter(torch.ones(self.num_heads))
         self.D._no_weight_decay = True
-        self.out_proj = paddle.compat.nn.Linear(self.intermediate_size,
-                                                self.hidden_size, bias=use_bias)
+
+        self.out_proj = paddle.compat.nn.Linear(
+            self.intermediate_size, self.hidden_size, bias=use_bias,
+        )
         self.use_bias = use_bias
 
         if not is_fast_path_available:
@@ -411,9 +416,17 @@ class LogLinearMamba2(nn.Module):
         if last_state is not None:
             if hidden_states.shape[1] != 1:
                 raise ValueError("LogLinearMamba2 cached decoding only supports a single new token per step.")
-            gate, xBC, dt, dl = paddle.compat.split(projected_states.
-                                                    squeeze(1), [self.intermediate_size, self.conv_dim, self.
-                                                                 num_heads, self.num_heads * self.num_lambda_dims], dim=-1)
+
+            gate, xBC, dt, dl = paddle.compat.split(
+                projected_states.squeeze(1),
+                [
+                    self.intermediate_size,
+                    self.conv_dim,
+                    self.num_heads,
+                    self.num_heads * self.num_lambda_dims,
+                ],
+                dim=-1,
+            )
 
             # 2. Convolution sequence transformation
             conv_state = last_state['conv_state']
@@ -424,8 +437,16 @@ class LogLinearMamba2(nn.Module):
                 self.conv1d.bias,
                 self.activation,
             )
-            x, B, C = paddle.compat.split(xBC, [self.intermediate_size,
-                                                groups_time_state_size, groups_time_state_size], dim=-1)
+
+            x, B, C = paddle.compat.split(
+                xBC,
+                [
+                    self.intermediate_size,
+                    groups_time_state_size,
+                    groups_time_state_size,
+                ],
+                dim=-1,
+            )
 
             # 3. SSM transformation
             A = -torch.exp(self.A_log.float())  # (nheads,)
@@ -499,22 +520,44 @@ class LogLinearMamba2(nn.Module):
             # 2-4. Fused kernel for conv1d, SSM, and the final projection
             if self.training and not use_cache:
                 out = paddle.distributed.fleet.utils.recompute(
-                    hmamba_split_conv1d_scan_combined, use_reentrant=False,
-                    zxbcdtdl=projected_states, conv1d_weight=rearrange(
-                        self.conv1d.weight, 'd 1 w -> d w'),
-                    conv1d_bias=self.conv1d.bias, dt_bias=self.dt_bias, A=A,
-                    L=self.L, D=self.D, chunk_size=self.chunk_size,
-                    conv1d_fn=self.causal_conv1d_fn, conv_backend=self.
-                    backend, seq_idx=None, activation=self.activation,
-                    rmsnorm_weight=self.norm.weight, rmsnorm_eps=self.norm.
-                    eps, outproj_weight=self.out_proj.weight, outproj_bias=self.out_proj.bias, headdim=self.head_dim, ngroups=self
-                    .n_groups, norm_before_gate=False, return_final_states=False, **dt_limit_kwargs)
+                    hmamba_split_conv1d_scan_combined,
+                    use_reentrant=False,
+                    # function arguments
+                    zxbcdtdl=projected_states,
+                    conv1d_weight=rearrange(self.conv1d.weight, "d 1 w -> d w"),
+                    conv1d_bias=self.conv1d.bias,
+                    dt_bias=self.dt_bias,
+                    A=A,
+                    L=self.L,
+                    D=self.D,
+                    chunk_size=self.chunk_size,
+                    conv1d_fn=self.causal_conv1d_fn,
+                    conv_backend=self.backend,
+                    seq_idx=None,  # was seq_idx
+                    activation=self.activation,
+                    rmsnorm_weight=self.norm.weight,
+                    rmsnorm_eps=self.norm.eps,
+                    outproj_weight=self.out_proj.weight,
+                    outproj_bias=self.out_proj.bias,
+                    headdim=self.head_dim,
+                    ngroups=self.n_groups,
+                    norm_before_gate=False,
+                    return_final_states=False,
+                    **dt_limit_kwargs,
+                )
                 return out, None, None
 
             else:
-                gate, xBC, dt, dl = paddle.compat.split(projected_states, [
-                    self.intermediate_size, self.conv_dim, self.num_heads,
-                    self.num_heads * self.num_lambda_dims], dim=-1)
+                gate, xBC, dt, dl = paddle.compat.split(
+                    projected_states,
+                    [
+                        self.intermediate_size,
+                        self.conv_dim,
+                        self.num_heads,
+                        self.num_heads * self.num_lambda_dims,
+                    ],
+                    dim=-1,
+                )
 
                 # 2. Convolution sequence transformation
                 # Init cache
@@ -522,8 +565,10 @@ class LogLinearMamba2(nn.Module):
                 new_conv_state = None
                 if use_cache:
                     xBC_t = rearrange(masked_xBC, "b l d -> b d l")
-                    new_conv_state = paddle.compat.nn.functional.pad(xBC_t,
-                                                                     (self.conv_kernel_size - xBC_t.shape[-1], 0))
+                    new_conv_state = paddle.compat.nn.functional.pad(
+                        xBC_t,
+                        (self.conv_kernel_size - xBC_t.shape[-1], 0),
+                    )
 
                 _conv1d_output = self.causal_conv1d_fn(
                     x=xBC.transpose(1, 2),
@@ -542,8 +587,16 @@ class LogLinearMamba2(nn.Module):
                     hidden_states=xBC,
                     attention_mask=attention_mask,
                 )
-                x, B, C = paddle.compat.split(xBC, [self.intermediate_size,
-                                                    groups_time_state_size, groups_time_state_size], dim=-1)
+
+                x, B, C = paddle.compat.split(
+                    xBC,
+                    [
+                        self.intermediate_size,
+                        groups_time_state_size,
+                        groups_time_state_size,
+                    ],
+                    dim=-1,
+                )
 
                 # 3. SSM transformation
                 y, hssm_state = hmamba_chunk_scan_combined(

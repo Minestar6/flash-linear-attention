@@ -1,6 +1,6 @@
-import paddle
-
 # Copyright (c) 2023-2025, Songlin Yang, Yu Zhang, Yuqi Pan
+
+import paddle
 import torch
 
 

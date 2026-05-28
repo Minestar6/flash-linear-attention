@@ -1,5 +1,3 @@
-import logging
-
 # Copyright 2024 state-spaces/mamba org and HuggingFace Inc. team.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -14,7 +12,7 @@ import logging
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import math
-
+import logging
 import paddle
 import paddleformers
 import torch
@@ -44,10 +42,15 @@ class MambaBlock(GradientCheckpointingLayer):
         self.layer_idx = layer_idx
         self.residual_in_fp32 = config.residual_in_fp32
         self.norm = RMSNorm(config.hidden_size, eps=config.norm_eps, dtype=torch.float32)
-        self.mixer = Mamba(hidden_size=config.hidden_size, state_size=config.state_size, conv_kernel=config.conv_kernel,
-                           use_conv_bias=config.use_conv_bias, intermediate_size=config.
-                           intermediate_size, dt_rank=config.dt_rank, dt_min=config.dt_min,
-                           dt_max=config.dt_max, dt_init=config.dt_init_scheme, dt_scale=config.dt_scale, dt_init_floor=config.dt_init_floor, use_bias=config.use_bias, hidden_act=config.hidden_act, layer_idx=layer_idx)
+        self.mixer = Mamba(
+            hidden_size=config.hidden_size,
+            state_size=config.state_size,
+            conv_kernel=config.conv_kernel,
+            intermediate_size=config.intermediate_size,
+            time_step_rank=config.time_step_rank,
+            use_bias=config.use_bias,
+            layer_idx=layer_idx,
+        )
 
     def forward(
         self,
@@ -229,9 +232,12 @@ class MambaModel(MambaPreTrainedModel):
 
         if not return_dict:
             return tuple(i for i in [hidden_states, past_key_values, all_hidden_states, all_attns] if i is not None)
-        return (paddleformers.transformers.model_outputs.
-                BaseModelOutputWithPast(last_hidden_state=hidden_states,
-                                        past_key_values=past_key_values, hidden_states=all_hidden_states, attentions=all_attns if all_attns else None))
+        return paddleformers.transformers.model_outputs.BaseModelOutputWithPast(
+            last_hidden_state=hidden_states,
+            past_key_values=past_key_values,
+            hidden_states=all_hidden_states,
+            attentions=all_attns if all_attns else None,
+        )
 
 
 class MambaForCausalLM(MambaPreTrainedModel, FLAGenerationMixin):
@@ -241,8 +247,7 @@ class MambaForCausalLM(MambaPreTrainedModel, FLAGenerationMixin):
     def __init__(self, config):
         super().__init__(config)
         self.backbone = MambaModel(config)
-        self.lm_head = paddle.compat.nn.Linear(config.hidden_size, config.
-                                               vocab_size, bias=False)
+        self.lm_head = paddle.compat.nn.Linear(config.hidden_size, config.vocab_size, bias=False)
         self.criterion = None
 
         # Initialize weights and apply final processing
@@ -314,6 +319,9 @@ class MambaForCausalLM(MambaPreTrainedModel, FLAGenerationMixin):
             output = (logits,) + outputs[1:]
             return (loss,) + output if loss is not None else output
         return paddleformers.transformers.model_outputs.CausalLMOutputWithPast(
-            loss=loss, logits=logits, past_key_values=outputs.
-            past_key_values, hidden_states=outputs.hidden_states,
-            attentions=outputs.attentions)
+            loss=loss,
+            logits=logits,
+            past_key_values=outputs.past_key_values,
+            hidden_states=outputs.hidden_states,
+            attentions=outputs.attentions,
+        )

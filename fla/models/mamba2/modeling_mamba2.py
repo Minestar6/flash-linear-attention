@@ -1,7 +1,3 @@
-from __future__ import annotations
-
-import logging
-
 # Copyright 2024 state-spaces/mamba2 org and HuggingFace Inc. team.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -15,6 +11,8 @@ import logging
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
+import logging
 import math
 
 import paddle
@@ -55,15 +53,16 @@ def tensor_to_dtensor(
     desired_placement: Placement | list[Placement] | None = None,
     run_check: bool = False,
 ):
-    if DTensor is not None and isinstance(tensor, DTensor):
+    if isinstance(tensor, DTensor):
         return tensor
-    if Placement is not None and isinstance(current_placement, Placement):
+
+    if isinstance(current_placement, Placement):
         current_placement = [current_placement]
 
     dtensor = DTensor.from_local(tensor, device_mesh=device_mesh, run_check=run_check, placements=current_placement)
 
     if desired_placement is not None:
-        if Placement is not None and isinstance(desired_placement, Placement):
+        if isinstance(desired_placement, Placement):
             desired_placement = [desired_placement]
 
         dtensor = dtensor.redistribute(device_mesh=device_mesh, placements=desired_placement, async_op=True)
@@ -79,17 +78,26 @@ class Mamba2Block(GradientCheckpointingLayer):
         self.layer_idx = layer_idx
         self.residual_in_fp32 = config.residual_in_fp32
         self.norm = RMSNorm(config.hidden_size, eps=config.norm_eps, dtype=torch.float32)
-        self.mixer = Mamba2(num_heads=config.num_heads, head_dim=config.
-                            head_dim, hidden_size=config.hidden_size, state_size=config.
-                            state_size, expand=config.expand, n_groups=config.n_groups,
-                            conv_kernel=config.conv_kernel, conv_init=config.conv_init,
-                            use_conv_bias=config.use_conv_bias, hidden_act=config.
-                            hidden_act, A_init_range=config.A_init_range, D_has_hdim=config
-                            .D_has_hdim, rmsnorm=config.rmsnorm, norm_before_gate=config.
-                            norm_before_gate, chunk_size=config.chunk_size, dt_limit=config
-                            .dt_limit, dt_min=config.dt_min, dt_max=config.dt_max,
-                            dt_init_floor=config.dt_init_floor, use_bias=config.use_bias,
-                            norm_eps=config.norm_eps, layer_idx=layer_idx)
+        self.mixer = Mamba2(
+            num_heads=config.num_heads,
+            head_dim=config.head_dim,
+            hidden_size=config.hidden_size,
+            state_size=config.state_size,
+            expand=config.expand,
+            n_groups=config.n_groups,
+            conv_kernel=config.conv_kernel,
+            use_conv_bias=config.use_conv_bias,
+            hidden_act=config.hidden_act,
+            rms_norm=config.rms_norm,
+            chunk_size=config.chunk_size,
+            time_step_rank=config.time_step_rank,
+            time_step_limit=config.time_step_limit,
+            time_step_min=config.time_step_min,
+            time_step_max=config.time_step_max,
+            use_bias=config.use_bias,
+            norm_eps=config.norm_eps,
+            layer_idx=layer_idx,
+        )
 
     def forward(
         self,
@@ -299,9 +307,12 @@ class Mamba2Model(Mamba2PreTrainedModel):
 
         if not return_dict:
             return tuple(i for i in [hidden_states, past_key_values, all_hidden_states, all_attns] if i is not None)
-        return (paddleformers.transformers.model_outputs.
-                BaseModelOutputWithPast(last_hidden_state=hidden_states,
-                                        past_key_values=past_key_values, hidden_states=all_hidden_states, attentions=all_attns))
+        return paddleformers.transformers.model_outputs.BaseModelOutputWithPast(
+            last_hidden_state=hidden_states,
+            past_key_values=past_key_values,
+            hidden_states=all_hidden_states,
+            attentions=all_attns,
+        )
 
 
 class Mamba2ForCausalLM(Mamba2PreTrainedModel, FLAGenerationMixin):
@@ -310,8 +321,7 @@ class Mamba2ForCausalLM(Mamba2PreTrainedModel, FLAGenerationMixin):
     def __init__(self, config):
         super().__init__(config)
         self.backbone = Mamba2Model(config)
-        self.lm_head = paddle.compat.nn.Linear(config.hidden_size, config.
-                                               vocab_size, bias=False)
+        self.lm_head = paddle.compat.nn.Linear(config.hidden_size, config.vocab_size, bias=False)
         self.criterion = None
 
         # Initialize weights and apply final processing
@@ -383,6 +393,9 @@ class Mamba2ForCausalLM(Mamba2PreTrainedModel, FLAGenerationMixin):
             output = (logits,) + outputs[1:]
             return (loss,) + output if loss is not None else output
         return paddleformers.transformers.model_outputs.CausalLMOutputWithPast(
-            loss=loss, logits=logits, past_key_values=outputs.
-            past_key_values, hidden_states=outputs.hidden_states,
-            attentions=outputs.attentions)
+            loss=loss,
+            logits=logits,
+            past_key_values=outputs.past_key_values,
+            hidden_states=outputs.hidden_states,
+            attentions=outputs.attentions,
+        )

@@ -223,8 +223,7 @@ class ChunkMesaNetFunction(torch.autograd.Function):
     @input_guard
     @autocast_custom_bwd
     def backward(ctx, do, dh_kk_final=None, dh_kv_final=None):
-        (q, q_rstd, k, k_rstd, v, g, beta, lamb, h_kk_init, h_kv_init,
-            q_star, o, chunk_indices) = ctx.saved_tensor()
+        q, q_rstd, k, k_rstd, v, g, beta, lamb, h_kk_init, h_kv_init, q_star, o, chunk_indices = ctx.saved_tensor()
 
         max_CG_iteration = ctx.max_CG_iteration
         chunk_size = ctx.chunk_size

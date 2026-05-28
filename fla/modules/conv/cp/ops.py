@@ -23,8 +23,13 @@ class CausalConv1dFunctionCP(torch.autograd.Function):
     """
 
     @staticmethod
-    def _prepare_initial_state_for_cp(x: torch.Tensor, weight: torch.Tensor,
-                                      cu_seqlens: (torch.Tensor | None), context: FLACPContext, group) -> (torch.Tensor | None):
+    def _prepare_initial_state_for_cp(
+        x: torch.Tensor,
+        weight: torch.Tensor,
+        cu_seqlens: (torch.Tensor | None),
+        context: FLACPContext,
+        group,
+    ) -> (torch.Tensor | None):
         """Prepare initial_state for CP forward pass by communicating with previous rank.
 
         Args:

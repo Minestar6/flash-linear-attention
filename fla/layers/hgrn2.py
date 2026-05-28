@@ -20,7 +20,6 @@ from fla.ops.gla import chunk_gla, fused_chunk_gla, fused_recurrent_gla
 
 if TYPE_CHECKING:
     from paddleformers.transformers.processing_utils import Unpack
-
     from fla.models.utils import Cache
 
 
@@ -67,12 +66,9 @@ class HGRN2Attention(nn.Module):
 
         self.head_f_dim = self.expand_ratio
         self.head_i_dim = self.hidden_size // num_heads
-        self.q_proj = paddle.compat.nn.Linear(hidden_size, self.forget_dim,
-                                              bias=False)
-        self.f_proj = paddle.compat.nn.Linear(hidden_size, self.forget_dim,
-                                              bias=False)
-        self.i_proj = paddle.compat.nn.Linear(hidden_size, self.input_dim,
-                                              bias=False)
+        self.q_proj = paddle.compat.nn.Linear(hidden_size, self.forget_dim, bias=False)
+        self.f_proj = paddle.compat.nn.Linear(hidden_size, self.forget_dim, bias=False)
+        self.i_proj = paddle.compat.nn.Linear(hidden_size, self.input_dim, bias=False)
 
         if use_short_conv:
             self.conv_size = conv_size
@@ -97,8 +93,7 @@ class HGRN2Attention(nn.Module):
 
         self.g_norm = RMSNorm(hidden_size=self.hidden_size, elementwise_affine=elementwise_affine,
                               eps=norm_eps, dtype=torch.float32)
-        self.o_proj = paddle.compat.nn.Linear(self.input_dim, hidden_size,
-                                              bias=False)
+        self.o_proj = paddle.compat.nn.Linear(self.input_dim, hidden_size, bias=False)
 
     def forward(
         self,
@@ -159,8 +154,7 @@ class HGRN2Attention(nn.Module):
         g = F.logsigmoid(f)
         # the lower bound for the first layer is zero
         if lower_bound is not None and self.layer_idx > 0:
-            g = paddle.logaddexp(x=lower_bound.log(), y=torch.log1p(-
-                                                                    lower_bound) + g)
+            g = paddle.logaddexp(x=lower_bound.log(), y=torch.log1p(-lower_bound) + g)
         k = 1 - g.exp()
 
         q, k, g = map(lambda x: rearrange(x, '... (h d) -> ... h d', d=self.head_f_dim), (q, k.to(i), g))

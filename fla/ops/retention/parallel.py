@@ -1,4 +1,5 @@
 # Copyright (c) 2023-2025, Songlin Yang, Yu Zhang
+
 import warnings
 
 import paddle
@@ -54,8 +55,8 @@ def parallel_retention(
             "when head_first=False was specified. "
             "Please verify your input tensor format matches the expected shape [B, T, H, ...].",
         )
-    s = (1 - paddle.to_tensor(data=2.0, dtype=torch.float).pow(-5.0 -
-                                                               paddle.to_tensor(data=range(q.shape[2]), dtype=torch.float))).log()
+    s = (1 - paddle.to_tensor(data=2.0, dtype=torch.float).
+         pow(-5.0 - paddle.to_tensor(data=range(q.shape[2]), dtype=torch.float))).log()
     g = s[None, None, :].expand(q.shape[0], q.shape[1], q.shape[2])
 
     o, attn = parallel_simple_gla(
@@ -67,4 +68,13 @@ def parallel_retention(
         output_attentions=output_attentions,
         cu_seqlens=cu_seqlens,
     )
+# Copyright (c) 2023-2025, Songlin Yang, Yu Zhang
+# Copyright (c) 2023-2025, Songlin Yang, Yu Zhang
+# Copyright (c) 2023-2025, Songlin Yang, Yu Zhang
+# Copyright (c) 2023-2025, Songlin Yang, Yu Zhang
+# Copyright (c) 2023-2025, Songlin Yang, Yu Zhang
+# Copyright (c) 2023-2025, Songlin Yang, Yu Zhang
+# Copyright (c) 2023-2025, Songlin Yang, Yu Zhang
+# Copyright (c) 2023-2025, Songlin Yang, Yu Zhang
+# Copyright (c) 2023-2025, Songlin Yang, Yu Zhang
     return o, attn

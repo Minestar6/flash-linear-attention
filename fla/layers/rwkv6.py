@@ -63,9 +63,11 @@ class RWKV6Attention(nn.Module):
         self.head_v_dim = self.value_dim // num_heads
 
         self.time_shift = nn.ZeroPad2d((0, 0, 1, -1))
-        self.x_proj = nn.Sequential(LerpLinear(hidden_size,
-                                               proj_low_rank_dim * 5), nn.Tanh(), paddle.compat.nn.Linear(
-            proj_low_rank_dim * 5, hidden_size, bias=False))
+        self.x_proj = nn.Sequential(
+            LerpLinear(hidden_size, proj_low_rank_dim * 5),
+            nn.Tanh(),
+            paddle.compat.nn.Linear(proj_low_rank_dim * 5, hidden_size, bias=False),
+        )
         self.x_bias = nn.Parameter(torch.zeros(5, hidden_size))
 
         self.r_proj = DDLerpLinear(hidden_size, self.key_dim)
@@ -77,8 +79,7 @@ class RWKV6Attention(nn.Module):
 
         # TODO: fuse GroupNorm and output gate
         self.g_norm = GroupNorm(self.num_heads, self.value_dim, elementwise_affine=elementwise_affine, bias=True, eps=norm_eps)
-        self.o_proj = paddle.compat.nn.Linear(self.value_dim, hidden_size,
-                                              bias=False)
+        self.o_proj = paddle.compat.nn.Linear(self.value_dim, hidden_size, bias=False)
         self.gate_fn = ACT2FN[gate_fn]
 
         try:
@@ -230,9 +231,11 @@ class LoRA(nn.Module):
             self.activation = nn.ReLU()
         else:
             raise ValueError(f"Not supported activation `{activation}`.")
-        self.lora = nn.Sequential(paddle.compat.nn.Linear(input_dim,
-                                                          low_rank_dim, bias=False), self.activation, paddle.compat.nn.
-                                  Linear(low_rank_dim, output_dim, bias=bias))
+        self.lora = nn.Sequential(
+            paddle.compat.nn.Linear(input_dim, low_rank_dim, bias=False),
+            self.activation,
+            paddle.compat.nn.Linear(low_rank_dim, output_dim, bias=bias),
+        )
         try:
             from paddleformers.transformers.model_utils import _init_weights
         except ImportError:
@@ -303,8 +306,7 @@ class LerpLinear(nn.Module):
 
         self.time_shift = nn.ZeroPad2d((0, 0, 1, -1))
         if low_rank_dim is None:
-            self.linear = paddle.compat.nn.Linear(input_dim, output_dim,
-                                                  bias=False)
+            self.linear = paddle.compat.nn.Linear(input_dim, output_dim, bias=False)
         else:
             self.linear = LoRA(input_dim, output_dim, low_rank_dim)
         self.mu = nn.Parameter(torch.zeros(input_dim))
@@ -339,8 +341,7 @@ class DDLerpLinear(nn.Module):
 
         self.time_shift = nn.ZeroPad2d((0, 0, 1, -1))
         if low_rank_dim is None:
-            self.linear = paddle.compat.nn.Linear(input_dim, output_dim,
-                                                  bias=False)
+            self.linear = paddle.compat.nn.Linear(input_dim, output_dim, bias=False)
         else:
             self.linear = LoRA(input_dim, output_dim, low_rank_dim)
 

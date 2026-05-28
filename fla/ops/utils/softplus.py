@@ -73,11 +73,9 @@ def softplus_nv(x):
         is_pure=True,
     )
 
-
 @triton.jit
 def softplus_triton(x):
     return tl.where(x < 20.0, tl.math.log(1 + tl.math.exp(x)), x)
-
 
 @triton.jit
 def softplus2_nv(x):
@@ -94,11 +92,9 @@ def softplus2_nv(x):
         is_pure=True,
     )
 
-
 @triton.jit
 def softplus2_triton(x):
     return tl.where(x < 15.0, tl.math.log2(1 + tl.math.exp2(x)), x)
-
 
 if IS_NVIDIA:
     softplus = softplus_nv

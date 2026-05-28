@@ -89,18 +89,13 @@ class GatedDeltaProduct(nn.Module):
                 f"Resulting head_v_dim would be {head_dim * expand_v}, which is invalid for FusedRMSNormGated.",
             )
         assert mode in ['chunk', 'fused_recurrent'], f"Not supported mode `{mode}`."
-        self.q_proj = paddle.compat.nn.Linear(hidden_size, self.key_dim,
-                                              bias=False)
-        self.k_proj = paddle.compat.nn.Linear(hidden_size, self.key_dim *
-                                              num_householder, bias=False)
-        self.v_proj = paddle.compat.nn.Linear(hidden_size, self.value_dim *
-                                              num_householder, bias=False)
-        self.b_proj = paddle.compat.nn.Linear(hidden_size, self.num_v_heads *
-                                              num_householder, bias=False)
+        self.q_proj = paddle.compat.nn.Linear(hidden_size, self.key_dim, bias=False)
+        self.k_proj = paddle.compat.nn.Linear(hidden_size, self.key_dim * num_householder, bias=False)
+        self.v_proj = paddle.compat.nn.Linear(hidden_size, self.value_dim * num_householder, bias=False)
+        self.b_proj = paddle.compat.nn.Linear(hidden_size, self.num_v_heads * num_householder, bias=False)
 
         if self.use_forget_gate:
-            self.a_proj = paddle.compat.nn.Linear(hidden_size, self.
-                                                  num_v_heads, bias=False)
+            self.a_proj = paddle.compat.nn.Linear(hidden_size, self.num_v_heads, bias=False)
             A = torch.empty(self.num_v_heads, dtype=torch.float32).uniform_(0, 16)
             self.A_log = nn.Parameter(torch.log(A))
             self.A_log._no_weight_decay = True
@@ -146,13 +141,11 @@ class GatedDeltaProduct(nn.Module):
                 "Do not turn it off, i.e., setting `use_short_conv=False` unless you know what you are doing.",
             )
         if use_output_gate:
-            self.g_proj = paddle.compat.nn.Linear(hidden_size, self.
-                                                  value_dim, bias=False)
+            self.g_proj = paddle.compat.nn.Linear(hidden_size, self.value_dim, bias=False)
             self.o_norm = FusedRMSNormGated(self.head_v_dim, eps=norm_eps)
         else:
             self.o_norm = RMSNorm(self.head_v_dim, eps=norm_eps, dtype=torch.float32)
-        self.o_proj = paddle.compat.nn.Linear(self.value_dim, hidden_size,
-                                              bias=False)
+        self.o_proj = paddle.compat.nn.Linear(self.value_dim, hidden_size, bias=False)
 
     def _initialize_weights(self, module: nn.Module):
         if getattr(module, "_is_hf_initialized", False):

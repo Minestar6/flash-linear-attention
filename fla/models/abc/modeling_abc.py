@@ -68,8 +68,7 @@ class ABCBlock(GradientCheckpointingLayer):
                 fuse_norm=config.fuse_norm,
                 layer_idx=layer_idx,
             )
-        self.mlp_norm = RMSNorm(
-            config.hidden_size, eps=config.norm_eps)
+        self.mlp_norm = RMSNorm(config.hidden_size, eps=config.norm_eps)
         self.mlp = ABCMLP(
             hidden_size=config.hidden_size,
             hidden_ratio=config.hidden_ratio,
@@ -177,8 +176,7 @@ class ABCModel(ABCPreTrainedModel):
 
         self.embeddings = nn.Embedding(config.vocab_size, config.hidden_size, self.padding_idx)
         self.layers = nn.ModuleList([ABCBlock(config, layer_idx) for layer_idx in range(config.num_hidden_layers)])
-        self.norm = RMSNorm(config
-                            .hidden_size, eps=config.norm_eps)
+        self.norm = RMSNorm(config.hidden_size, eps=config.norm_eps)
 
         self.gradient_checkpointing = False
 
@@ -249,9 +247,12 @@ class ABCModel(ABCPreTrainedModel):
 
         if not return_dict:
             return tuple(i for i in [hidden_states, past_key_values, all_hidden_states, all_attns] if i is not None)
-        return (paddleformers.transformers.model_outputs.
-                BaseModelOutputWithPast(last_hidden_state=hidden_states,
-                                        past_key_values=past_key_values, hidden_states=all_hidden_states, attentions=all_attns))
+        return paddleformers.transformers.model_outputs.BaseModelOutputWithPast(
+            last_hidden_state=hidden_states,
+            past_key_values=past_key_values,
+            hidden_states=all_hidden_states,
+            attentions=all_attns,
+        )
 
 
 class ABCForCausalLM(ABCPreTrainedModel, FLAGenerationMixin):
@@ -262,8 +263,7 @@ class ABCForCausalLM(ABCPreTrainedModel, FLAGenerationMixin):
         super().__init__(config)
         self.model = ABCModel(config)
         self.vocab_size = config.vocab_size
-        self.lm_head = paddle.compat.nn.Linear(config.hidden_size, config.
-                                               vocab_size, bias=False)
+        self.lm_head = paddle.compat.nn.Linear(config.hidden_size, config.vocab_size, bias=False)
         self.criterion = None
 
         # Initialize weights and apply final processing
@@ -360,7 +360,11 @@ class ABCForCausalLM(ABCPreTrainedModel, FLAGenerationMixin):
         if not return_dict:
             output = (logits,) + outputs[1:]
             return (loss,) + output if loss is not None else output
+
         return paddleformers.transformers.model_outputs.CausalLMOutputWithPast(
-            loss=loss, logits=logits, past_key_values=outputs.
-            past_key_values, hidden_states=outputs.hidden_states,
-            attentions=outputs.attentions)
+            loss=loss,
+            logits=logits,
+            past_key_values=outputs.past_key_values,
+            hidden_states=outputs.hidden_states,
+            attentions=outputs.attentions,
+        )

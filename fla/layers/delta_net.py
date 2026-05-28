@@ -122,17 +122,13 @@ class DeltaNet(nn.Module):
         assert mode in ['chunk', 'fused_recurrent'], f"Not supported mode `{mode}`."
         assert self.key_dim % num_heads == 0, f"key dim must be divisible by num_heads of {num_heads}"
         assert self.value_dim % num_heads == 0, f"value dim must be divisible by num_heads of {num_heads}"
-        self.q_proj = paddle.compat.nn.Linear(hidden_size, self.key_dim,
-                                              bias=False)
-        self.k_proj = paddle.compat.nn.Linear(hidden_size, self.key_dim,
-                                              bias=False)
-        self.v_proj = paddle.compat.nn.Linear(hidden_size, self.value_dim,
-                                              bias=False)
+        self.q_proj = paddle.compat.nn.Linear(hidden_size, self.key_dim, bias=False)
+        self.k_proj = paddle.compat.nn.Linear(hidden_size, self.key_dim, bias=False)
+        self.v_proj = paddle.compat.nn.Linear(hidden_size, self.value_dim, bias=False)
 
         self.use_beta = use_beta
         if self.use_beta:
-            self.b_proj = paddle.compat.nn.Linear(hidden_size, self.
-                                                  num_heads, bias=False)
+            self.b_proj = paddle.compat.nn.Linear(hidden_size, self.num_heads, bias=False)
         if use_short_conv:
             self.conv_size = conv_size
             self.q_conv1d = ShortConvolution(
@@ -159,13 +155,12 @@ class DeltaNet(nn.Module):
                 "Do not turn it off, i.e., setting `use_short_conv=False` unless you know what you are doing.",
             )
         if use_gate:
-            self.g_proj = paddle.compat.nn.Linear(hidden_size, self.
-                                                  value_dim, bias=False)
+            self.g_proj = paddle.compat.nn.Linear(hidden_size, self.value_dim, bias=False)
             self.o_norm = FusedRMSNormGated(self.head_v_dim, eps=norm_eps)
         else:
             self.o_norm = RMSNorm(self.head_v_dim, eps=norm_eps, dtype=torch.float32)
-        self.o_proj = paddle.compat.nn.Linear(self.value_dim, hidden_size,
-                                              bias=False)
+
+        self.o_proj = paddle.compat.nn.Linear(self.value_dim, hidden_size, bias=False)
 
     def forward(
         self,

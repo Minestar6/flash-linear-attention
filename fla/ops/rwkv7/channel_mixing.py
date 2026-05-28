@@ -1,4 +1,5 @@
 # Copyright (c) 2023-2025, Songlin Yang, Yu Zhang
+
 import logging
 
 import paddle
@@ -151,9 +152,11 @@ def rwkv_relu_and_square_fwd(x: torch.Tensor, inplace: bool = True):
     x = x.contiguous()
     output = x if inplace else torch.empty_like(x)
 
-    def grid(meta):
-        return (output.size + meta['BLOCK_SIZE'] - 1) // meta['BLOCK_SIZE'
-                                                              ], 1, 1
+    def grid(meta): return(
+        (output.size + meta['BLOCK_SIZE'] - 1) // meta['BLOCK_SIZE'],
+        1,
+        1,
+    )
     rwkv_channel_mixing_pow_and_relu[grid](
         x,
         output,
@@ -278,9 +281,7 @@ def rwkv_channel_mixing_bwd(grad_output, x, x_prev, x_k, key_weight, value_weigh
     dx_prev = torch.empty_like(x_prev) if not inplace else x_prev
     dx = torch.empty_like(x) if not inplace else x
 
-    def grid(meta):
-        return (batch_size * seq_len * n_embd + meta['BLOCK_SIZE'] - 1
-                ) // meta['BLOCK_SIZE'], 1, 1
+    def grid(meta): return ((batch_size * seq_len * n_embd + meta['BLOCK_SIZE'] - 1) // meta['BLOCK_SIZE'], 1, 1)
     rwkv_mix_bwd_kenel[grid](
         dk1,
         x_k.squeeze(),

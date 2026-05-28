@@ -241,8 +241,7 @@ class ChunkCombaFunction(torch.autograd.Function):
         do: torch.Tensor,
         dht: torch.Tensor,
     ):
-        (q, q_rstd, k, k_rstd, p, p_rstd, v, g0, g, beta, A, initial_state,
-            cu_seqlens, chunk_indices) = ctx.saved_tensor()
+        q, q_rstd, k, k_rstd, p, p_rstd, v, g0, g, beta, A, initial_state, cu_seqlens, chunk_indices = ctx.saved_tensor()
         dq, dk, dv, dp, db, dg, dh0 = chunk_comba_bwd(
             q=q,
             k=k,

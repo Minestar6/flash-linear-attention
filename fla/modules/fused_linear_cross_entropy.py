@@ -1,6 +1,8 @@
 # Copyright (c) 2023-2025, Songlin Yang, Yu Zhang
+
 # Code adapted from
 # https://github.com/linkedin/Liger-Kernel/blob/main/src/liger_kernel/ops/fused_linear_cross_entropy.py
+
 from functools import partial
 
 import paddle
@@ -240,6 +242,8 @@ def fused_linear_cross_entropy_forward(
         start, end = ic * C, min((ic + 1) * C, N)
         # [C, N]
         c_x = x[start:end]
+        # when doing matmul, use the original precision
+        # [C, V]
         c_logits = paddle.compat.nn.functional.linear(c_x, weight, bias)
         c_target = target[start:end]
         # [C]

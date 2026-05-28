@@ -173,8 +173,7 @@ class ChunkDPLRDeltaRuleFunction(torch.autograd.Function):
         dht: torch.Tensor,
     ):
         if ctx.disable_recompute:
-            (q, k, v, a, b, gk, initial_state, gi, ge, A_qk, A_qb, A_ak, qg,
-                kg, ag, bg, w, h, v_new, A_ab_inv) = ctx.saved_tensor()
+            q, k, v, a, b, gk, initial_state, gi, ge, A_qk, A_qb, A_ak, qg, kg, ag, bg, w, h, v_new, A_ab_inv = ctx.saved_tensor()
         else:
             q, k, v, a, b, gk, initial_state = ctx.saved_tensor()
         chunk_size = ctx.chunk_size

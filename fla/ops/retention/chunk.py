@@ -1,3 +1,4 @@
+
 # Copyright (c) 2023-2025, Songlin Yang, Yu Zhang
 import warnings
 
@@ -60,8 +61,8 @@ def chunk_retention(
             "when head_first=False was specified. "
             "Please verify your input tensor format matches the expected shape [B, T, H, ...].",
         )
-    g_gamma = (1 - paddle.to_tensor(data=2.0, dtype=torch.float).pow(-5.0 -
-                                                                     paddle.to_tensor(data=list(range(q.shape[2])), dtype=torch.float))).log()
+    g_gamma = (1 - paddle.to_tensor(data=2.0, dtype=torch.float).
+               pow(-5.0 - paddle.to_tensor(data=list(range(q.shape[2])), dtype=torch.float))).log()
     o, final_state = chunk_simple_gla(
         q=q,
         k=k,

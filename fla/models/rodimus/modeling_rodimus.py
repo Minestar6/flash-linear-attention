@@ -65,8 +65,7 @@ class RodimusBlock(GradientCheckpointingLayer):
             hidden_act=config.hidden_act,
             fuse_swiglu=config.fuse_swiglu,
         )
-        norm_cls = partial(RMSNorm,
-                           config.hidden_size, eps=config.norm_eps)
+        norm_cls = partial(RMSNorm, config.hidden_size, eps=config.norm_eps)
 
         if config.attn is not None and layer_idx in config.attn['layers']:
             self._is_ori_attn = True
@@ -283,8 +282,7 @@ class RodimusPreTrainedModel(paddleformers.transformers.PretrainedModel):
         if hasattr(module, 'g_gate_proj'):
             nn.init.xavier_uniform_(module.g_gate_proj.weight, gain=2 ** -2.5)
             with torch.no_grad():
-                if DTensor is None or not isinstance(module.
-                                                     g_gate_proj.bias, DTensor):
+                if not isinstance(module.g_gate_proj.bias, DTensor):
                     module.g_gate_proj.bias.copy_(g_gate_bias)
                 else:
                     logger.warning_once("`g_gate_proj.bias` is a DTensor, skipping initialization")
@@ -292,8 +290,7 @@ class RodimusPreTrainedModel(paddleformers.transformers.PretrainedModel):
         if hasattr(module, 'tau_gate_proj'):
             nn.init.xavier_uniform_(module.tau_gate_proj.weight, gain=2 ** -2.5)
             with torch.no_grad():
-                if DTensor is None or not isinstance(module.
-                                                     tau_gate_proj.bias, DTensor):
+                if not isinstance(module.tau_gate_proj.bias, DTensor):
                     module.tau_gate_proj.bias.copy_(tau_gate_bias)
                 else:
                     logger.warning_once("`tau_gate_proj.bias` is a DTensor, skipping initialization")
@@ -348,8 +345,7 @@ class RodimusModel(RodimusPreTrainedModel):
 
         self.embeddings = nn.Embedding(config.vocab_size, config.hidden_size, self.padding_idx)
         self.layers = nn.ModuleList([RodimusBlock(config, layer_idx) for layer_idx in range(config.num_hidden_layers)])
-        self.norm = RMSNorm(config
-                            .hidden_size, eps=config.norm_eps)
+        self.norm = RMSNorm(config.hidden_size, eps=config.norm_eps)
 
         self.gradient_checkpointing = False
 
@@ -436,9 +432,12 @@ class RodimusModel(RodimusPreTrainedModel):
 
         if not return_dict:
             return tuple(i for i in [hidden_states, past_key_values, all_hidden_states, all_attns] if i is not None)
-        return (paddleformers.transformers.model_outputs.
-                BaseModelOutputWithPast(last_hidden_state=hidden_states,
-                                        past_key_values=past_key_values, hidden_states=all_hidden_states, attentions=all_attns))
+        return paddleformers.transformers.model_outputs.BaseModelOutputWithPast(
+            last_hidden_state=hidden_states,
+            past_key_values=past_key_values,
+            hidden_states=all_hidden_states,
+            attentions=all_attns,
+        )
 
 
 class RodimusForCausalLM(RodimusPreTrainedModel, FLAGenerationMixin):
@@ -449,8 +448,7 @@ class RodimusForCausalLM(RodimusPreTrainedModel, FLAGenerationMixin):
         super().__init__(config)
         self.model = RodimusModel(config)
         self.vocab_size = config.vocab_size
-        self.lm_head = paddle.compat.nn.Linear(config.hidden_size, config.
-                                               vocab_size, bias=False)
+        self.lm_head = paddle.compat.nn.Linear(config.hidden_size, config.vocab_size, bias=False)
         self.criterion = None
 
         # Initialize weights and apply final processing
@@ -548,6 +546,9 @@ class RodimusForCausalLM(RodimusPreTrainedModel, FLAGenerationMixin):
             output = (logits,) + outputs[1:]
             return (loss,) + output if loss is not None else output
         return paddleformers.transformers.model_outputs.CausalLMOutputWithPast(
-            loss=loss, logits=logits, past_key_values=outputs.
-            past_key_values, hidden_states=outputs.hidden_states,
-            attentions=outputs.attentions)
+            loss=loss,
+            logits=logits,
+            past_key_values=outputs.past_key_values,
+            hidden_states=outputs.hidden_states,
+            attentions=outputs.attentions,
+        )

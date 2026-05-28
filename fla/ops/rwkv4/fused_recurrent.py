@@ -6,7 +6,7 @@ import torch
 import triton
 import triton.language as tl
 from torch import Tensor
-from torch.autograd.function import Function, FunctionCtx
+from torch.autograd.function import Function, FunctionCtx, once_differentiable
 
 from fla.ops.utils.op import exp
 from fla.utils import input_guard
@@ -459,6 +459,7 @@ class FusedRecurrentRWKV4Function(Function):
         return wkv, state_out[:, :, -1:]
 
     @staticmethod
+    @once_differentiable
     @input_guard
     def backward(ctx: FunctionCtx, gwkv: Tensor, gstate: Tensor) -> tuple[Tensor, Tensor, Tensor, Tensor, Tensor]:
         w, u, k, v, state = cast('tuple[Tensor, ...]', ctx.saved_tensor())

@@ -67,8 +67,7 @@ def load_balancing_loss_func(
     if isinstance(gate_logits, tuple):
         compute_device = gate_logits[0].device
         concatenated_gate_logits = torch.cat([layer_gate.to(compute_device) for layer_gate in gate_logits], dim=0)
-    routing_weights = paddle.compat.nn.functional.softmax(
-        concatenated_gate_logits, dim=-1)
+    routing_weights = paddle.compat.nn.functional.softmax(concatenated_gate_logits, dim=-1)
 
     _, selected_experts = torch.topk(routing_weights, top_k, dim=-1)
 
@@ -239,8 +238,7 @@ class MomPreTrainedModel(paddleformers.transformers.PretrainedModel):
 
 
 @dataclass
-class MomOutputWithPast(paddleformers.transformers.model_outputs.
-                        BaseModelOutputWithPast):
+class MomOutputWithPast(paddleformers.transformers.model_outputs.BaseModelOutputWithPast):
     router_logits: tuple[torch.FloatTensor, ...] | None = None
 
 
@@ -337,8 +335,7 @@ class MomModel(MomPreTrainedModel):
 
 
 @dataclass
-class MomCausalLMOutputWithPast(paddleformers.transformers.model_outputs.
-                                CausalLMOutputWithPast):
+class MomCausalLMOutputWithPast(paddleformers.transformers.model_outputs.CausalLMOutputWithPast):
     aux_loss: torch.FloatTensor | None = None
     router_logits: tuple[torch.FloatTensor, ...] | None = None
 
@@ -351,8 +348,7 @@ class MomForCausalLM(MomPreTrainedModel, FLAGenerationMixin):
         super().__init__(config)
         self.model = MomModel(config)
         self.vocab_size = config.vocab_size
-        self.lm_head = paddle.compat.nn.Linear(config.hidden_size, config.
-                                               vocab_size, bias=False)
+        self.lm_head = paddle.compat.nn.Linear(config.hidden_size, config.vocab_size, bias=False)
         self.num_memories = config.num_memories
         self.topk = config.topk
         self.aux_loss_scale = config.aux_loss_scale

@@ -87,21 +87,15 @@ class MesaNet(nn.Module):
         self.lambda_lower_bound = lambda_lower_bound
         self.max_cg_step_training = max_cg_step_training
         self.max_cg_step_decoding = max_cg_step_decoding
-        self.q_proj = paddle.compat.nn.Linear(hidden_size, self.key_dim,
-                                              bias=False)
-        self.k_proj = paddle.compat.nn.Linear(hidden_size, self.key_dim,
-                                              bias=False)
-        self.v_proj = paddle.compat.nn.Linear(hidden_size, self.value_dim,
-                                              bias=False)
-        self.a_proj = paddle.compat.nn.Linear(hidden_size, self.num_heads,
-                                              bias=True)
-        self.b_proj = paddle.compat.nn.Linear(hidden_size, self.num_heads,
-                                              bias=True)
+        self.q_proj = paddle.compat.nn.Linear(hidden_size, self.key_dim, bias=False)
+        self.k_proj = paddle.compat.nn.Linear(hidden_size, self.key_dim, bias=False)
+        self.v_proj = paddle.compat.nn.Linear(hidden_size, self.value_dim, bias=False)
+        self.a_proj = paddle.compat.nn.Linear(hidden_size, self.num_heads, bias=True)
+        self.b_proj = paddle.compat.nn.Linear(hidden_size, self.num_heads, bias=True)
 
         lambda_initial_value = 1.0
         init_lamb_value = torch.log(torch.exp(torch.tensor(lambda_initial_value - lambda_lower_bound)) - 1.0)
-        init_lamb_params = torch.empty(self.key_dim, dtype=torch.float32
-                                       ).fill_(init_lamb_value.item())
+        init_lamb_params = torch.empty(self.key_dim, dtype=torch.float32).fill_(init_lamb_value.item())
 
         self.lambda_params = nn.Parameter(init_lamb_params)
         self.lambda_params._no_weight_decay = True
@@ -120,13 +114,11 @@ class MesaNet(nn.Module):
             activation='silu',
         )
         if use_output_gate:
-            self.g_proj = paddle.compat.nn.Linear(hidden_size, self.
-                                                  value_dim, bias=False)
+            self.g_proj = paddle.compat.nn.Linear(hidden_size, self.value_dim, bias=False)
             self.o_norm = FusedRMSNormGated(self.head_v_dim, eps=norm_eps)
         else:
             self.o_norm = RMSNorm(self.head_v_dim, eps=norm_eps, dtype=torch.float32)
-        self.o_proj = paddle.compat.nn.Linear(self.value_dim, hidden_size,
-                                              bias=False)
+        self.o_proj = paddle.compat.nn.Linear(self.value_dim, hidden_size, bias=False)
 
     def forward(
         self,

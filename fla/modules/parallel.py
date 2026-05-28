@@ -1,6 +1,6 @@
-from __future__ import annotations
-
 # Copyright (c) 2023-2025, Songlin Yang, Yu Zhang
+
+
 import torch.nn as nn
 
 try:

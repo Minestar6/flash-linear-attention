@@ -165,6 +165,7 @@ def transform(
             batch_indices[attention_mask.repeat_interleave(topk, dim=1).bitwise_not().flatten()] = b
         # (b * s)
         memories_flat = selected_memories.reshape(-1)  # [b*s]
+
         combined = batch_indices * (memories_flat._max() + 1) + memories_flat
         sorted_indices = combined.argsort()
 
@@ -326,41 +327,35 @@ class MomAttention(nn.Module):
         self.silu = nn.SiLU()
 
         assert mode in ['chunk', 'fused_recurrent'], f"Not suppoerted mode `{mode}`."
-        self.q_proj = paddle.compat.nn.Linear(hidden_size, self.key_dim,
-                                              bias=False)
-        self.gate = paddle.compat.nn.Linear(self.hidden_size, self.
-                                            num_memories, bias=False)
+        self.q_proj = paddle.compat.nn.Linear(hidden_size, self.key_dim, bias=False)
+        self.gate = paddle.compat.nn.Linear(self.hidden_size, self.num_memories, bias=False)
         if self.single_kv_proj:
-            self.shared_k = paddle.compat.nn.Linear(hidden_size, self.
-                                                    key_dim, bias=False)
-            self.shared_v = paddle.compat.nn.Linear(hidden_size, self.
-                                                    value_dim, bias=False)
-            self.shared_b = paddle.compat.nn.Linear(hidden_size, self.
-                                                    num_heads, bias=False)
-            self.shared_a = paddle.compat.nn.Linear(hidden_size, self.
-                                                    num_heads, bias=False)
+            self.shared_k = paddle.compat.nn.Linear(hidden_size, self.key_dim, bias=False)
+            self.shared_v = paddle.compat.nn.Linear(hidden_size, self.value_dim, bias=False)
+            self.shared_b = paddle.compat.nn.Linear(hidden_size, self.num_heads, bias=False)
+            self.shared_a = paddle.compat.nn.Linear(hidden_size, self.num_heads, bias=False)
         else:
-            self.k_proj = nn.ModuleList([paddle.compat.nn.Linear(self.
-                                                                 hidden_size, self.key_dim, bias=False) for _ in range(self.
-                                                                                                                       num_memories)])
-            self.v_proj = nn.ModuleList([paddle.compat.nn.Linear(self.
-                                                                 hidden_size, self.value_dim, bias=False) for _ in range(
-                self.num_memories)])
-            self.b_proj = nn.ModuleList([paddle.compat.nn.Linear(self.
-                                                                 hidden_size, self.num_heads, bias=False) for _ in range(
-                self.num_memories)])
-            self.a_proj = nn.ModuleList([paddle.compat.nn.Linear(self.
-                                                                 hidden_size, self.num_heads, bias=False) for _ in range(
-                self.num_memories)])
+            self.k_proj = nn.ModuleList([
+                paddle.compat.nn.Linear(self.hidden_size, self.key_dim, bias=False)
+                for _ in range(self.num_memories)
+            ])
+            self.v_proj = nn.ModuleList([
+                paddle.compat.nn.Linear(self.hidden_size, self.value_dim, bias=False)
+                for _ in range(self.num_memories)
+            ])
+            self.b_proj = nn.ModuleList([
+                paddle.compat.nn.Linear(self.hidden_size, self.num_heads, bias=False)
+                for _ in range(self.num_memories)
+            ])
+            self.a_proj = nn.ModuleList([
+                paddle.compat.nn.Linear(self.hidden_size, self.num_heads, bias=False)
+                for _ in range(self.num_memories)
+            ])
             if self.shared_mem:
-                self.shared_k = paddle.compat.nn.Linear(hidden_size, self.
-                                                        key_dim, bias=False)
-                self.shared_v = paddle.compat.nn.Linear(hidden_size, self.
-                                                        value_dim, bias=False)
-                self.shared_b = paddle.compat.nn.Linear(hidden_size, self.
-                                                        num_heads, bias=False)
-                self.shared_a = paddle.compat.nn.Linear(hidden_size, self.
-                                                        num_heads, bias=False)
+                self.shared_k = paddle.compat.nn.Linear(hidden_size, self.key_dim, bias=False)
+                self.shared_v = paddle.compat.nn.Linear(hidden_size, self.value_dim, bias=False)
+                self.shared_b = paddle.compat.nn.Linear(hidden_size, self.num_heads, bias=False)
+                self.shared_a = paddle.compat.nn.Linear(hidden_size, self.num_heads, bias=False)
 
         A = torch.empty(self.num_heads, dtype=torch.float32).uniform_(0, 16)
         self.A_log = nn.Parameter(torch.log(A))
@@ -407,13 +402,11 @@ class MomAttention(nn.Module):
                 "Do not turn it off, i.e., setting `use_short_conv=False` unless you know what you are doing.",
             )
         if use_output_gate:
-            self.g_proj = paddle.compat.nn.Linear(hidden_size, self.
-                                                  value_dim, bias=False)
+            self.g_proj = paddle.compat.nn.Linear(hidden_size, self.value_dim, bias=False)
             self.o_norm = FusedRMSNormGated(self.head_v_dim, eps=norm_eps)
         else:
             self.o_norm = RMSNorm(self.head_v_dim, eps=norm_eps, dtype=torch.float32)
-        self.o_proj = paddle.compat.nn.Linear(self.value_dim, hidden_size,
-                                              bias=False)
+        self.o_proj = paddle.compat.nn.Linear(self.value_dim, hidden_size, bias=False)
         self.apply(self._initialize_weights)
 
     def _initialize_weights(self, module: nn.Module):
@@ -455,8 +448,7 @@ class MomAttention(nn.Module):
 
         # 🔍 topk gating
         router_logits = self.gate(hidden_states)  # (bsz, q_len, num_memories)
-        scores = paddle.compat.nn.functional.softmax(router_logits, dim=2,
-                                                     dtype=torch.float)
+        scores = paddle.compat.nn.functional.softmax(router_logits, dim=2, dtype=torch.float)
         routing_weights, selected_memories = torch.topk(scores, self.topk, dim=-1)  # (bsz, seq, topk)
         routing_weights /= routing_weights.sum(dim=-1, keepdim=True)
         routing_weights = routing_weights.to(hidden_states.dtype)  # we cast back to the input dtype
@@ -505,8 +497,7 @@ class MomAttention(nn.Module):
             padded = False
             if self.training:
                 conv_cu_seqlens = None
-            elif seq_len != 1 and (cu_seqlens[1:] - cu_seqlens[:-1])._min(
-            ).item() < self.conv_size:
+            elif seq_len != 1 and (cu_seqlens[1:] - cu_seqlens[:-1])._min().item() < self.conv_size:
                 padded = True
                 conv_cu_seqlens, cu_q, cu_k, cu_v, pad_lengths = self.pad_for_conv(cu_seqlens, cu_q, cu_k, cu_v)
 

@@ -101,4 +101,5 @@ class HGRN2Config(paddleformers.transformers.PretrainedConfig):
             eos_token_id=eos_token_id,
             tie_word_embeddings=tie_word_embeddings,
             **kwargs,
+
         )

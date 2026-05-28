@@ -1,6 +1,6 @@
-import paddle
-
 # Copyright (c) 2023-2025, Songlin Yang, Yu Zhang
+
+import paddle
 import torch
 import triton
 import triton.language as tl
@@ -47,8 +47,7 @@ def prepare_cu_seqlens_from_lens(
     lens: torch.LongTensor,
     dtype: torch.dtype | None = torch.int32,
 ) -> torch.LongTensor:
-    return paddle.compat.nn.functional.pad(lens.cumsum(dim=0, dtype=dtype),
-                                           (1, 0))
+    return paddle.compat.nn.functional.pad(lens.cumsum(dim=0, dtype=dtype), (1, 0))
 
 
 @tensor_cache
@@ -60,10 +59,13 @@ def prepare_cu_seqlens_from_mask(
 
 
 @tensor_cache
-def prepare_split_cu_seqlens(batch_size: int, seq_len: int, split_size: int,
-                             cu_seqlens: (torch.LongTensor | None) = None, dtype: (torch.dtype | None)
-                             = torch.int32, device=paddle.device('cpu')
-                             ) -> torch.LongTensor:
+def prepare_split_cu_seqlens(
+    batch_size: int,
+    seq_len: int,
+    split_size: int,
+    cu_seqlens: torch.LongTensor | None = None,
+    dtype: torch.dtype | None = torch.int32,
+    device=paddle.device('cpu'),) -> torch.LongTensor:
     if cu_seqlens is None:
         total_tokens = batch_size * seq_len
         cu_seqlens = list(range(0, total_tokens, seq_len)) + [total_tokens]

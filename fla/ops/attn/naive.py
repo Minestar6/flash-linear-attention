@@ -53,7 +53,9 @@ def naive_parallel_attn(
         scores = scores.masked_fill(causal_mask.unsqueeze(0), float('-inf'))
     max_logits_flat = (scores.max(axis=-1), scores.argmax(axis=-1)).values
     max_logits = max_logits_flat.reshape(B, T, HQ)  # [B, T, HQ]
-    attn_weights = paddle.compat.nn.functional.softmax(scores, dim=-1)
+
+    # Compute attention weights and output
+    attn_weights = paddle.compat.nn.functional.softmax(scores, dim=-1)  # [B*H*G, T, T]
     output_flat = torch.bmm(attn_weights, v_flat)  # [B*H*G, T, D]
     output = output_flat.reshape(B, T, HQ, D)  # [B, T, HQ, D]
 

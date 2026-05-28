@@ -984,8 +984,7 @@ class ChunkGSAFunction(torch.autograd.Function):
     @staticmethod
     @input_guard
     def backward(ctx, dov, dhkt=None, dhvt=None):
-        q, k, v, s, g, ok, p, Av, hk0, hv0, hk, hv, chunk_indices = (ctx.
-                                                                     saved_tensor())
+        q, k, v, s, g, ok, p, Av, hk0, hv0, hk, hv, chunk_indices = ctx.saved_tensor()
         scale = ctx.scale
         cu_seqlens = ctx.cu_seqlens
         chunk_size = ctx.chunk_size

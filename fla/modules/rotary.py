@@ -327,9 +327,15 @@ class RotaryEmbedding(nn.Module):
     Reference: https://github.com/sunyt32/torchscale/blob/main/torchscale/component/xpos_relative_position.py
     """
 
-    def __init__(self, dim: int, base: float = 10000.0, scale_base: (float |
-                                                                     None) = None, interleaved: bool = False, pos_idx_in_fp32: bool = True,
-                 device=None):
+    def __init__(
+        self,
+        dim: int,
+        base: float = 10000.0,
+        scale_base: float | None = None,
+        interleaved: bool = False,
+        pos_idx_in_fp32: bool = True,
+        device = None,
+    ):
         """
         interleaved:
             If True, rotate pairs of even and odd dimensions (GPT-J style) instead of 1st half and 2nd half (GPT-NeoX style).
@@ -393,9 +399,16 @@ class RotaryEmbedding(nn.Module):
         return (torch.arange(0, self.dim, 2, device=device, dtype=torch.float32) + 0.4 * self.dim) / (1.4 * self.dim)
 
     def _update_cos_sin_cache(self, seqlen, device=None, dtype=None):
-        if (seqlen > self._seq_len_cached or self._cos_cached is None or
-            self._cos_cached.device != device or self._cos_cached.dtype !=
-                dtype or self.training and self._cos_cached.stop_gradient):
+        # Reset the tables if the sequence length has changed,
+        # if we're on a new device (possibly due to tracing for instance),
+        # or if we're switching from inference mode to training
+        if (
+            seqlen > self._seq_len_cached
+            or self._cos_cached is None
+            or self._cos_cached.device != device
+            or self._cos_cached.dtype != dtype
+            or self.training and self._cos_cached.stop_gradient
+        ):
             self._seq_len_cached = seqlen
             # We want fp32 here, not self.inv_freq.dtype, since the model could be loaded in bf16
             # And the output of arange can be quite large, so bf16 would lose a lot of precision.

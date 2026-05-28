@@ -1,4 +1,6 @@
+
 # Copyright (c) 2023, Tri Dao.
+
 from typing import Any
 
 import paddle
@@ -203,8 +205,9 @@ def fused_cross_entropy_forward(
         if world_size > 1:
             lse_allgather = torch.empty(world_size, n_rows, dtype=lse.dtype, device=lse.device)
             paddle.distributed.stream.all_gather(tensor_or_tensor_list=lse_allgather, tensor=lse, group=process_group)
-            handle_losses = paddle.distributed.all_reduce(tensor=losses, op=torch.distributed.ReduceOp.SUM, group=process_group,
-                                                          sync_op=not True)
+            handle_losses = paddle.distributed.all_reduce(
+                tensor=losses, op=torch.distributed.ReduceOp.SUM, group=process_group, sync_op=not True
+            )
             lse = torch.logsumexp(lse_allgather, dim=0)
             handle_losses.wait()
         # After the allreduce, if there's no label_smoothing, the total losses are - predicted_logit,
@@ -269,9 +272,7 @@ class CrossEntropyLossFunction(torch.autograd.Function):
         n_rows, n_cols = logits.shape
         BLOCK_SIZE = min(triton.next_power_of_2(n_cols), 4 * 1024)
         num_warps = 4 if BLOCK_SIZE < 2048 else (8 if BLOCK_SIZE < 8192 else 16)
-
-        def grid(META):
-            return n_rows, triton.cdiv(n_cols, META['BLOCK_SIZE'])
+        def grid(META): return (n_rows, triton.cdiv(n_cols, META["BLOCK_SIZE"]))  # noqa
         cross_entropy_bwd_kernel[grid](
             dlogits,  # data ptrs
             grad_losses,

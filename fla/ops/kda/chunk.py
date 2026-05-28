@@ -102,9 +102,7 @@ class ChunkKDAFunction(torch.autograd.Function):
         do: torch.Tensor,
         dht: torch.Tensor,
     ):
-        (q, q_rstd, k, k_rstd, v, g_cumsum, g_input, beta, A_log, dt_bias,
-            Aqk, Akk, w, u, qg, kg, v_new, h, initial_state, cu_seqlens,
-            chunk_indices) = ctx.saved_tensor()
+        q, q_rstd, k, k_rstd, v, g_cumsum, g_input, beta, A_log, dt_bias, Aqk, Akk, w, u, qg, kg, v_new, h, initial_state, cu_seqlens, chunk_indices = ctx.saved_tensor()
 
         dq, dk, dv, db, dg, dh0, dA, dbias = chunk_kda_bwd(
             q=q,

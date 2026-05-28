@@ -257,8 +257,7 @@ class GrpoLoss(torch.autograd.Function):
     @input_guard
     @staticmethod
     def backward(ctx, dloss):
-        lse, logits, input_ids, advantages, completion_mask = ctx.saved_tensor(
-        )
+        lse, logits, input_ids, advantages, completion_mask = ctx.saved_tensor()
         inplace = ctx.inplace
         B, L_ADD_1, N = ctx.input_shape
         L = L_ADD_1 - 1
@@ -401,9 +400,11 @@ def grpo_loss_with_old_logps(
 
     # Add an extra dimension to advantages to match the shape for element - wise multiplication
     advantages = advantages.unsqueeze(1)
-    token_loss = -(paddle.compat.min(advantages * importance_weights,
-                                     advantages * importance_weights_clipped) - beta * per_token_kl
-                   ) * completion_mask
+
+    # Calculate the per - token loss. It takes the minimum of the unclipped and clipped importance weights
+    # and subtracts the KL divergence term weighted by beta, then multiplies by the completion mask
+    token_loss = -(paddle.compat.min(advantages * importance_weights, advantages *
+                   importance_weights_clipped) - beta * per_token_kl) * completion_mask
 
     # Calculate the final loss by summing the token losses and normalizing by the number of valid tokens
     loss = -token_loss.sum() / completion_mask.sum()

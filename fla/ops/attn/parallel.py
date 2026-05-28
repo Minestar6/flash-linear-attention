@@ -509,7 +509,13 @@ def parallel_attn_bwd_preprocess(
 ):
     V = o.shape[-1]
     delta = torch.empty_like(o[..., 0], dtype=torch.float)
-    parallel_attn_bwd_kernel_preprocess[delta.size,](o=o, do=do, delta=delta, B=triton.next_power_of_2(V), V=V)
+    parallel_attn_bwd_kernel_preprocess[delta.size,](
+        o=o,
+        do=do,
+        delta=delta,
+        B=triton.next_power_of_2(V),
+        V=V,
+    )
     return delta
 
 

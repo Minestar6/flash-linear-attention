@@ -112,12 +112,9 @@ class KimiDeltaAttention(nn.Module):
                 f"Resulting head_v_dim would be {head_dim * expand_v}, which is invalid for FusedRMSNormGated.",
             )
         assert mode in ["chunk", "fused_recurrent"], f"Not supported mode `{mode}`."
-        self.q_proj = paddle.compat.nn.Linear(hidden_size, self.key_dim,
-                                              bias=False)
-        self.k_proj = paddle.compat.nn.Linear(hidden_size, self.key_dim,
-                                              bias=False)
-        self.v_proj = paddle.compat.nn.Linear(hidden_size, self.value_dim,
-                                              bias=False)
+        self.q_proj = paddle.compat.nn.Linear(hidden_size, self.key_dim, bias=False)
+        self.k_proj = paddle.compat.nn.Linear(hidden_size, self.key_dim, bias=False)
+        self.v_proj = paddle.compat.nn.Linear(hidden_size, self.value_dim, bias=False)
 
         if use_short_conv:
             self.q_conv1d = ShortConvolution(
@@ -138,11 +135,11 @@ class KimiDeltaAttention(nn.Module):
                 bias=conv_bias,
                 activation="silu",
             )
-        self.f_proj = nn.Sequential(paddle.compat.nn.Linear(hidden_size,
-                                                            self.head_v_dim, bias=False), paddle.compat.nn.Linear(self.
-                                                                                                                  head_v_dim, self.key_dim, bias=False))
-        self.b_proj = paddle.compat.nn.Linear(hidden_size, self.num_heads,
-                                              bias=False)
+        self.f_proj = nn.Sequential(
+            paddle.compat.nn.Linear(hidden_size, self.head_v_dim, bias=False),
+            paddle.compat.nn.Linear(self.head_v_dim, self.key_dim, bias=False),
+        )
+        self.b_proj = paddle.compat.nn.Linear(hidden_size, self.num_heads, bias=False)
 
         self.A_log = nn.Parameter(torch.log(torch.empty(self.num_heads, dtype=torch.float32).uniform_(1, 16)))
         self.A_log._no_weight_decay = True
@@ -152,12 +149,12 @@ class KimiDeltaAttention(nn.Module):
         inv_dt = dt + torch.log(-torch.expm1(-dt))
         self.dt_bias = nn.Parameter(inv_dt)
         self.dt_bias._no_weight_decay = True
-        self.g_proj = nn.Sequential(paddle.compat.nn.Linear(hidden_size,
-                                                            self.head_v_dim, bias=False), paddle.compat.nn.Linear(self.
-                                                                                                                  head_v_dim, self.value_dim, bias=True))
+        self.g_proj = nn.Sequential(
+            paddle.compat.nn.Linear(hidden_size, self.head_v_dim, bias=False),
+            paddle.compat.nn.Linear(self.head_v_dim, self.value_dim, bias=True),
+        )
         self.o_norm = FusedRMSNormGated(self.head_v_dim, activation="sigmoid", eps=norm_eps)
-        self.o_proj = paddle.compat.nn.Linear(self.value_dim, hidden_size,
-                                              bias=False)
+        self.o_proj = paddle.compat.nn.Linear(self.value_dim, hidden_size, bias=False)
 
     def forward(
         self,

@@ -133,10 +133,8 @@ class LearnableOuterProductFeatureMap(nn.Module):
         feature_dim: int,
     ) -> LearnableOuterProductFeatureMap:
         super().__init__()
-        self.layer1 = paddle.compat.nn.Linear(head_dim, feature_dim, bias=False
-                                              )
-        self.layer2 = paddle.compat.nn.Linear(head_dim, feature_dim, bias=False
-                                              )
+        self.layer1 = paddle.compat.nn.Linear(head_dim, feature_dim, bias=False)
+        self.layer2 = paddle.compat.nn.Linear(head_dim, feature_dim, bias=False)
         self.normalizer = feature_dim ** -0.5
 
     def forward(self, x: torch.Tensor):
@@ -161,14 +159,14 @@ class LearnablePolySketchNonNegativeFeatureMap(nn.Module):
 
         self.gamma = nn.Parameter(torch.ones(head_dim))
         self.beta = nn.Parameter(torch.zeros(head_dim))
-        self.sketches1 = nn.ModuleList([paddle.compat.nn.Linear(head_dim,
-                                                                sketch_size, bias=False), *[paddle.compat.nn.Linear(sketch_size,
-                                                                                                                    sketch_size, bias=False) for _ in range(int(math.log2(self.
-                                                                                                                                                                          degree)) - 2)]])
-        self.sketches2 = nn.ModuleList([paddle.compat.nn.Linear(head_dim,
-                                                                sketch_size, bias=False), *[paddle.compat.nn.Linear(sketch_size,
-                                                                                                                    sketch_size, bias=False) for _ in range(int(math.log2(self.
-                                                                                                                                                                          degree)) - 2)]])
+        self.sketches1 = nn.ModuleList([
+            paddle.compat.nn.Linear(head_dim, sketch_size, bias=False),
+            *[paddle.compat.nn.Linear(sketch_size, sketch_size, bias=False) for _ in range(int(math.log2(self.degree)) - 2)]
+        ])
+        self.sketches2 = nn.ModuleList([
+            paddle.compat.nn.Linear(head_dim, sketch_size, bias=False), 
+            *[paddle.compat.nn.Linear(sketch_size, sketch_size, bias=False) for _ in range(int(math.log2(self.degree)) - 2)]
+        ])
 
     def forward(self, x: torch.Tensor):
         # Section 2.1

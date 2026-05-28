@@ -57,8 +57,7 @@ class RWKV6FeedForward(nn.Module):
         self.time_shift = nn.ZeroPad2d((0, 0, 1, -1))
 
         self.key = LerpLinear(hidden_size, intermediate_size)
-        self.value = paddle.compat.nn.Linear(intermediate_size, hidden_size,
-                                             bias=False)
+        self.value = paddle.compat.nn.Linear(intermediate_size, hidden_size, bias=False)
         self.receptance = LerpLinear(hidden_size, hidden_size)
         self.act_fn = ACT2FN[hidden_act]
 
@@ -325,9 +324,12 @@ class RWKV6Model(RWKV6PreTrainedModel):
 
         if not return_dict:
             return tuple(i for i in [hidden_states, past_key_values, all_hidden_states, all_attns] if i is not None)
-        return (paddleformers.transformers.model_outputs.
-                BaseModelOutputWithPast(last_hidden_state=hidden_states,
-                                        past_key_values=past_key_values, hidden_states=all_hidden_states, attentions=all_attns))
+        return paddleformers.transformers.model_outputs.BaseModelOutputWithPast(
+            last_hidden_state=hidden_states,
+            past_key_values=past_key_values,
+            hidden_states=all_hidden_states,
+            attentions=all_attns,
+        )
 
 
 class RWKV6ForCausalLM(RWKV6PreTrainedModel, FLAGenerationMixin):
@@ -437,6 +439,9 @@ class RWKV6ForCausalLM(RWKV6PreTrainedModel, FLAGenerationMixin):
             output = (logits,) + outputs[1:]
             return (loss,) + output if loss is not None else output
         return paddleformers.transformers.model_outputs.CausalLMOutputWithPast(
-            loss=loss, logits=logits, past_key_values=outputs.
-            past_key_values, hidden_states=outputs.hidden_states,
-            attentions=outputs.attentions)
+            loss=loss,
+            logits=logits,
+            past_key_values=outputs.past_key_values,
+            hidden_states=outputs.hidden_states,
+            attentions=outputs.attentions,
+        )

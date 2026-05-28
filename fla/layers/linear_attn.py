@@ -100,12 +100,9 @@ class LinearAttention(nn.Module):
             self.feature_map_k = nn.Identity()
         else:
             raise NotImplementedError(f"Not supported feature map `{feature_map}`.")
-        self.q_proj = paddle.compat.nn.Linear(hidden_size, self.key_dim,
-                                              bias=False)
-        self.k_proj = paddle.compat.nn.Linear(hidden_size, self.
-                                              key_dim_per_group, bias=False)
-        self.v_proj = paddle.compat.nn.Linear(hidden_size, self.
-                                              value_dim_per_group, bias=False)
+        self.q_proj = paddle.compat.nn.Linear(hidden_size, self.key_dim, bias=False)
+        self.k_proj = paddle.compat.nn.Linear(hidden_size, self.key_dim_per_group, bias=False)
+        self.v_proj = paddle.compat.nn.Linear(hidden_size, self.value_dim_per_group, bias=False)
 
         if output_norm == 'rmsnorm':
             self.norm = RMSNorm(hidden_size=self.head_v_dim, elementwise_affine=elementwise_affine,
@@ -114,8 +111,8 @@ class LinearAttention(nn.Module):
             self.norm = nn.Identity()
         else:
             raise NotImplementedError(f"Not supported output norm `{output_norm}`.")
-        self.o_proj = paddle.compat.nn.Linear(self.value_dim, hidden_size,
-                                              bias=False)
+
+        self.o_proj = paddle.compat.nn.Linear(self.value_dim, hidden_size, bias=False)
 
         self.norm_q = norm_q
         self.norm_k = norm_k

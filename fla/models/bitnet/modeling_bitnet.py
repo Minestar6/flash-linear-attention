@@ -59,12 +59,9 @@ class BitNetMLP(nn.Module):
 
         if hidden_act != 'swish':
             raise ValueError(f'Unsupported hidden_act: {hidden_act}')
-        self.gate_proj = paddle.compat.nn.Linear(self.hidden_size, self.
-                                                 intermediate_size, bias=False)
-        self.up_proj = paddle.compat.nn.Linear(self.hidden_size, self.
-                                               intermediate_size, bias=False)
-        self.down_proj = paddle.compat.nn.Linear(self.intermediate_size,
-                                                 self.hidden_size, bias=False)
+        self.gate_proj = paddle.compat.nn.Linear(self.hidden_size, self.ntermediate_size, bias=False)
+        self.up_proj = paddle.compat.nn.Linear(self.hidden_size, self.intermediate_size, bias=False)
+        self.down_proj = paddle.compat.nn.Linear(self.intermediate_size, self.hidden_size, bias=False)
 
     def forward(
         self,
@@ -82,8 +79,7 @@ class BitNetBlock(GradientCheckpointingLayer):
 
         self.config = config
         self.layer_idx = layer_idx
-        self.attn_norm = RMSNorm(
-            config.hidden_size, eps=config.norm_eps)
+        self.attn_norm = RMSNorm(config.hidden_size, eps=config.norm_eps)
         self.attn = BitAttention(
             hidden_size=config.hidden_size,
             num_heads=config.num_heads,
@@ -93,8 +89,7 @@ class BitNetBlock(GradientCheckpointingLayer):
             max_position_embeddings=config.max_position_embeddings,
             layer_idx=layer_idx,
         )
-        self.mlp_norm = RMSNorm(
-            config.hidden_size, eps=config.norm_eps)
+        self.mlp_norm = RMSNorm(config.hidden_size, eps=config.norm_eps)
         self.mlp = BitNetMLP(
             hidden_size=config.hidden_size,
             hidden_ratio=config.hidden_ratio,
@@ -160,8 +155,7 @@ class BitNetPreTrainedModel(paddleformers.transformers.PretrainedModel):
         rescale_prenorm_residual: bool = False,
         num_residuals_per_layer: int = 2,
     ):
-        if isinstance(module, (paddle.compat.nn.Linear, FusedBitLinear, nn.
-                               Conv1d)):
+        if isinstance(module, (paddle.compat.nn.Linear, FusedBitLinear, nn.Conv1d)):
             # Slightly different from the TF version which uses truncated_normal for initialization
             # cf https://github.com/pytorch/pytorch/pull/5617
             nn.init.normal_(module.weight, mean=0.0, std=self.config.initializer_range)
@@ -206,8 +200,7 @@ class BitNetModel(BitNetPreTrainedModel):
 
         self.embeddings = nn.Embedding(config.vocab_size, config.hidden_size, self.padding_idx)
         self.layers = nn.ModuleList([BitNetBlock(config, layer_idx) for layer_idx in range(config.num_hidden_layers)])
-        self.norm = RMSNorm(config
-                            .hidden_size, eps=config.norm_eps)
+        self.norm = RMSNorm(config.hidden_size, eps=config.norm_eps)
 
         self.gradient_checkpointing = False
 
@@ -289,10 +282,12 @@ class BitNetModel(BitNetPreTrainedModel):
 
         if not return_dict:
             return tuple(v for v in [hidden_states, next_cache, all_hidden_states, all_attns] if v is not None)
-        return (paddleformers.transformers.model_outputs.
-                BaseModelOutputWithPast(last_hidden_state=hidden_states,
-                                        past_key_values=next_cache, hidden_states=all_hidden_states,
-                                        attentions=all_attns))
+        return paddleformers.transformers.model_outputs.BaseModelOutputWithPast(
+            last_hidden_state=hidden_states,
+            past_key_values=next_cache,
+            hidden_states=all_hidden_states,
+            attentions=all_attns,
+        )
 
 
 class BitNetForCausalLM(BitNetPreTrainedModel, FLAGenerationMixin):
@@ -303,8 +298,7 @@ class BitNetForCausalLM(BitNetPreTrainedModel, FLAGenerationMixin):
         super().__init__(config)
         self.model = BitNetModel(config)
         self.vocab_size = config.vocab_size
-        self.lm_head = paddle.compat.nn.Linear(config.hidden_size, config.
-                                               vocab_size, bias=False)
+        self.lm_head = paddle.compat.nn.Linear(config.hidden_size, config.vocab_size, bias=False)
         self.criterion = None
 
         # Initialize weights and apply final processing
@@ -388,6 +382,9 @@ class BitNetForCausalLM(BitNetPreTrainedModel, FLAGenerationMixin):
             output = (logits,) + outputs[1:]
             return (loss,) + output if loss is not None else output
         return paddleformers.transformers.model_outputs.CausalLMOutputWithPast(
-            loss=loss, logits=logits, past_key_values=outputs.
-            past_key_values, hidden_states=outputs.hidden_states,
-            attentions=outputs.attentions)
+            loss=loss,
+            logits=logits,
+            past_key_values=outputs.past_key_values,
+            hidden_states=outputs.hidden_states,
+            attentions=outputs.attentions,
+        )

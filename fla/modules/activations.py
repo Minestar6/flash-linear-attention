@@ -1,6 +1,5 @@
-import paddle
-
 # Copyright (c) 2023-2025, Tri Dao, Yu Zhang, Songlin Yang.
+import paddle
 import torch
 import torch.nn.functional as F
 import triton
@@ -411,6 +410,11 @@ class SwishFunction(torch.autograd.Function):
 
 
 swish = SwishFunction.apply
+
+# 1/sqrt(2*pi)-> 0.3989423
+# 1/sqrt(2)   -> 0.70710678
+# sqrt(2/pi)  -> 0.79788456
+
 
 
 def bias_gelu(y, bias):

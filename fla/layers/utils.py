@@ -1,5 +1,8 @@
 # Copyright (c) 2023-2025, Songlin Yang, Yu Zhang
+
 # Code is adapted from flash-attn.bert_padding.py
+
+
 import torch
 from einops import rearrange, repeat
 
@@ -52,8 +55,7 @@ class IndexPutFirstAxis(torch.autograd.Function):
         ctx.save_for_backward(indices)
         assert indices.ndim == 1
         assert x.ndim >= 2
-        y = torch.zeros([first_axis_dim, *x.shape[1:]], device=x.device,
-                        dtype=x.dtype)
+        y = torch.zeros([first_axis_dim, *x.shape[1:]], device=x.device, dtype=x.dtype)
         # TODO [2022-03-04] For some reason torch.scatter is a bit faster than indexing.
         y[indices] = x
         # y.scatter_(0, repeat(indices, 'z -> z d', d=x.shape[1]), x)

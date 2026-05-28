@@ -52,11 +52,16 @@ class SambaBlock(GradientCheckpointingLayer):
                 layer_idx=layer_idx,
             )
         else:
-            self.mixer = Mamba(hidden_size=config.hidden_size, state_size=config.state_size, conv_kernel=config.conv_kernel,
-                               intermediate_size=config.intermediate_size, dt_rank=config.
-                               time_step_rank, use_bias=config.use_bias, layer_idx=layer_idx)
-        self.mlp_norm = RMSNorm(
-            config.hidden_size, eps=config.norm_eps)
+            self.mixer = Mamba(
+                hidden_size=config.hidden_size,
+                state_size=config.state_size,
+                conv_kernel=config.conv_kernel,
+                intermediate_size=config.intermediate_size,
+                time_step_rank=config.time_step_rank,
+                use_bias=config.use_bias,
+                layer_idx=layer_idx,
+            )
+        self.mlp_norm = (RMSNorm if config.fuse_norm else nn.RMSNorm)(config.hidden_size, eps=config.norm_eps)
         self.mlp = SambaMLP(
             hidden_size=config.hidden_size,
             hidden_ratio=config.hidden_ratio,
@@ -231,9 +236,12 @@ class SambaModel(SambaPreTrainedModel):
 
         if not return_dict:
             return tuple(i for i in [hidden_states, past_key_values, all_hidden_states, all_attns] if i is not None)
-        return (paddleformers.transformers.model_outputs.
-                BaseModelOutputWithPast(last_hidden_state=hidden_states,
-                                        past_key_values=past_key_values, hidden_states=all_hidden_states, attentions=all_attns if all_attns else None))
+        return paddleformers.transformers.model_outputs.BaseModelOutputWithPast(
+            last_hidden_state=hidden_states,
+            past_key_values=past_key_values,
+            hidden_states=all_hidden_states,
+            attentions=all_attns if all_attns else None,
+        )
 
 
 class SambaForCausalLM(SambaPreTrainedModel, FLAGenerationMixin):
@@ -243,8 +251,7 @@ class SambaForCausalLM(SambaPreTrainedModel, FLAGenerationMixin):
     def __init__(self, config):
         super().__init__(config)
         self.backbone = SambaModel(config)
-        self.lm_head = paddle.compat.nn.Linear(config.hidden_size, config.
-                                               vocab_size, bias=False)
+        self.lm_head = paddle.compat.nn.Linear(config.hidden_size, config.vocab_size, bias=False)
         self.criterion = None
 
         # Initialize weights and apply final processing
@@ -316,6 +323,9 @@ class SambaForCausalLM(SambaPreTrainedModel, FLAGenerationMixin):
             output = (logits,) + outputs[1:]
             return (loss,) + output if loss is not None else output
         return paddleformers.transformers.model_outputs.CausalLMOutputWithPast(
-            loss=loss, logits=logits, past_key_values=outputs.
-            past_key_values, hidden_states=outputs.hidden_states,
-            attentions=outputs.attentions)
+            loss=loss,
+            logits=logits,
+            past_key_values=outputs.past_key_values,
+            hidden_states=outputs.hidden_states,
+            attentions=outputs.attentions,
+        )
