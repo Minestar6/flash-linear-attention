@@ -7,15 +7,14 @@ import torch
 from paddleformers.transformers.model_outputs import BaseModelOutputWithPast, CausalLMOutputWithPast
 from torch import nn
 
-
-
-
 from fla.layers.log_linear_mamba2 import LogLinearMamba2
 from fla.models.log_linear_mamba2.configuration_log_linear_mamba2 import LogLinearMamba2Config
 from fla.models.utils import Cache, FLAGenerationMixin
 from fla.modules import FusedCrossEntropyLoss, FusedLinearCrossEntropyLoss, GatedMLP, RMSNorm
 from ...paddle_utils import *
 logger = logging.getLogger(name=__name__)
+
+
 class LogLinearMamba2Block(nn.Module):
     def __init__(self, config: LogLinearMamba2Config, layer_idx: int) -> None:
         super().__init__()
@@ -153,7 +152,7 @@ class LogLinearMamba2PreTrainedModel(paddleformers.transformers.PretrainedModel,
                     raise ValueError("This is not supposed to happen")
         elif isinstance(module, nn.Embedding):
             nn.init.normal_(module.weight, mean=0.0, std=self.config.initializer_range)
-        elif hasattr(module, 'reset_parameters'):
+        elif hasattr(module, "reset_parameters"):
             module.reset_parameters()
 
         if self.config.rescale_prenorm_residual:
@@ -172,7 +171,7 @@ class LogLinearMamba2PreTrainedModel(paddleformers.transformers.PretrainedModel,
                 p = module.out_proj.weight
             elif hasattr(module, "down_proj"):
                 p = module.down_proj.weight
-            if p is not None and not getattr(p, '_is_hf_initialized', False):
+            if p is not None:
                 # Special Scaled Initialization --> There are 2 Layer Norms per Transformer Block
                 # Following Pytorch init, except scale by 1/sqrt(2 * n_layer)
                 # We need to reinit p since this code could be called multiple times
@@ -373,7 +372,7 @@ class LogLinearMamba2ForCausalLM(LogLinearMamba2PreTrainedModel):
                 else hidden_states[:, -logits_to_keep:],
             )
         if labels is not None:
-            if getattr(self, 'criterion', None) is None:
+            if getattr(self, "criterion", None) is None:
                 if fuse_linear_and_cross_entropy:
                     criterion = FusedLinearCrossEntropyLoss()
                 elif self.config.fuse_cross_entropy:
