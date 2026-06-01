@@ -1,0 +1,83 @@
+name: Paddle Smoke
+
+on:
+  push:
+    branches: [paddle]
+
+  pull_request:
+    branches: [paddle]
+    types: [opened, synchronize, reopened, labeled, ready_for_review]
+
+  workflow_dispatch:
+    inputs:
+      skip_gpu:
+        description: "Skip GPU tests"
+        type: boolean
+        default: true
+
+concurrency:
+  group: paddle-smoke-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  paddle-import-smoke:
+    name: Paddle import smoke
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Paddle PR
+        uses: actions/checkout@v4
+        with:
+          path: paddle_fla
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      - name: Install dependencies
+        working-directory: paddle_fla
+        run: |
+          python -m pip install -U pip
+          python -m pip install pytest numpy paddlepaddle
+          python -m pip install --no-build-isolation -e .
+
+      - name: Run CPU-safe import smoke tests
+        working-directory: paddle_fla
+        run: |
+          pytest -q tests/paddle/test_paddle_smoke.py::test_import
+
+  paddle-vs-torch-smoke:
+    name: Paddle vs Torch forward bf16
+    runs-on: [self-hosted, linux, gpu]
+
+    steps:
+      - name: Checkout Paddle PR
+        uses: actions/checkout@v4
+        with:
+          path: paddle_fla
+
+      - name: Checkout Torch reference
+        uses: actions/checkout@v4
+        with:
+          repository: fla-org/flash-linear-attention
+          ref: main
+          path: torch_fla_ref
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install -U pip
+          python -m pip install pytest numpy torch paddlepaddle-gpu
+          python -m pip install --no-build-isolation -e paddle_fla
+
+      - name: Run Paddle vs Torch bf16 precision smoke
+        env:
+          PADDLE_FLA_ROOT: ${{ github.workspace }}/paddle_fla
+          TORCH_FLA_ROOT: ${{ github.workspace }}/torch_fla_ref
+        run: |
+          pytest -q paddle_fla/tests/paddle/test_paddle_smoke.py::test_precision
