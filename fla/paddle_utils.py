@@ -100,16 +100,6 @@ def _Tensor_min(self, *args, **kwargs):
 paddle.Tensor._min = _Tensor_min
 
 
-def _Tensor_split(self, split_size, dim=0):
-    if isinstance(split_size, int):
-        return paddle.split(self, self.shape[dim] // split_size, dim)
-    else:
-        return paddle.split(self, split_size, dim)
-
-
-paddle.Tensor.split = _Tensor_split
-
-
 # RMSNorm 兼容 - 等价于 torch.nn.RMSNorm
 if hasattr(paddle.compat.nn, 'RMSNorm'):
     paddle.nn.RMSNorm = paddle.compat.nn.RMSNorm

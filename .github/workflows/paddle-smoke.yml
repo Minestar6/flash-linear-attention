@@ -3,53 +3,23 @@ name: Paddle Smoke
 on:
   push:
     branches: [paddle]
-
   pull_request:
     branches: [paddle]
-    types: [opened, synchronize, reopened, labeled, ready_for_review]
-
+    types: [opened, synchronize, reopened, ready_for_review]
   workflow_dispatch:
-    inputs:
-      skip_gpu:
-        description: "Skip GPU tests"
-        type: boolean
-        default: true
 
 concurrency:
   group: paddle-smoke-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+permissions:
+  contents: read
+
 jobs:
-  paddle-import-smoke:
-    name: Paddle import smoke
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout Paddle PR
-        uses: actions/checkout@v4
-        with:
-          path: paddle_fla
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.10"
-
-      - name: Install dependencies
-        working-directory: paddle_fla
-        run: |
-          python -m pip install -U pip
-          python -m pip install pytest numpy paddlepaddle
-          python -m pip install --no-build-isolation -e .
-
-      - name: Run CPU-safe import smoke tests
-        working-directory: paddle_fla
-        run: |
-          pytest -q tests/paddle/test_paddle_smoke.py::test_import
-
-  paddle-vs-torch-smoke:
-    name: Paddle vs Torch forward bf16
-    runs-on: [self-hosted, linux, gpu]
+  paddle-smoke:
+    name: paddle-smoke
+    runs-on: [self-hosted, linux, gpu, cuda-12-6]
+    timeout-minutes: 60
 
     steps:
       - name: Checkout Paddle PR
@@ -72,10 +42,41 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install -U pip
-          python -m pip install pytest numpy torch paddlepaddle-gpu
+
+          # PyTorch CUDA 12.6
+          python -m pip install torch --index-url https://download.pytorch.org/whl/cu126
+
+          # PaddlePaddle CUDA 12.6
+          python -m pip install paddlepaddle-gpu==3.3.0 -i https://www.paddlepaddle.org.cn/packages/stable/cu126/
+
+          # Test/runtime dependencies
+          python -m pip install pytest numpy einops paddleformers
+
+          # Install Paddle FLA checkout
           python -m pip install --no-build-isolation -e paddle_fla
 
-      - name: Run Paddle vs Torch bf16 precision smoke
+      - name: Check GPU environment
+        run: |
+          nvidia-smi
+          nvcc --version || true
+          python - <<'PY'
+          import torch
+          import paddle
+
+          print("torch:", torch.__version__)
+          print("torch cuda:", torch.version.cuda)
+          print("torch cuda available:", torch.cuda.is_available())
+
+          print("paddle:", paddle.__version__)
+          print("paddle cuda device count:", paddle.device.cuda.device_count())
+          paddle.utils.run_check()
+          PY
+
+      - name: Run import smoke
+        run: |
+          pytest -q paddle_fla/tests/paddle/test_paddle_smoke.py::test_import
+
+      - name: Run precision smoke
         env:
           PADDLE_FLA_ROOT: ${{ github.workspace }}/paddle_fla
           TORCH_FLA_ROOT: ${{ github.workspace }}/torch_fla_ref

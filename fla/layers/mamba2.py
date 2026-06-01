@@ -261,8 +261,10 @@ class Mamba2(nn.Module):
             conv_state = last_state['conv_state']
             ssm_state = last_state['recurrent_state']
 
-            _, _, gate, hidden_states_B_C, dt = projected_states.squeeze(1).split(
-                [d_mlp, d_mlp, self.intermediate_size, self.conv_dim, self.num_heads], dim=-1,
+            _, _, gate, hidden_states_B_C, dt = paddle.compat.split(
+                projected_states.squeeze(1),
+                split_size_or_sections = [d_mlp, d_mlp, self.intermediate_size, self.conv_dim, self.num_heads],
+                dim=-1,
             )
 
             # 2. Convolution sequence transformation
@@ -346,9 +348,11 @@ class Mamba2(nn.Module):
                 return out, None, None
 
             else:
-                _, _, gate, hidden_states_B_C, dt = projected_states.split(
-                    [d_mlp, d_mlp, self.intermediate_size, self.conv_dim, self.num_heads], dim=-1,
-                )
+                _, _, gate, hidden_states_B_C, dt = paddle.compat.split(
+                    projected_states,
+                    split_size_or_sections = [d_mlp, d_mlp, self.intermediate_size, self.conv_dim, self.num_heads],
+                    dim=-1,
+                )               
 
                 # 2. Convolution sequence transformation
                 hidden_states_B_C = apply_mask_to_padding_states(hidden_states_B_C, attention_mask)
@@ -431,8 +435,10 @@ class Mamba2(nn.Module):
         projected_states = self.in_proj(input_states)
         d_mlp = (projected_states.shape[-1] - 2 * self.intermediate_size -
                  2 * self.n_groups * self.ssm_state_size - self.num_heads) // 2
-        _, _, gate, hidden_states_B_C, dt = projected_states.split(
-            [d_mlp, d_mlp, self.intermediate_size,  self.conv_dim, self.num_heads], dim=-1,
+        _, _, gate, hidden_states_B_C, dt = paddle.compat.split(
+            projected_states,
+            split_size_or_sections = [d_mlp, d_mlp, self.intermediate_size, self.conv_dim, self.num_heads],
+            dim=-1,
         )
 
         # 2. Convolution sequence transformation
