@@ -1,8 +1,8 @@
 # Copyright (c) 2023-2025, Songlin Yang, Yu Zhang
-
 from __future__ import annotations
 
 import logging
+
 from typing import TYPE_CHECKING
 
 import paddle
@@ -19,6 +19,7 @@ from fla.ops.path_attn.parallel import parallel_path_attn
 
 if TYPE_CHECKING:
     from fla.models.utils import Cache
+
 logger = logging.getLogger(name=__name__)
 
 
@@ -48,6 +49,7 @@ class PaTHAttention(nn.Module):
         self.kv_dim = self.num_kv_heads * self.head_dim
 
         self.layer_idx = layer_idx
+
         self.q_proj = paddle.compat.nn.Linear(self.hidden_size, self.hidden_size, bias=False)
         self.k_proj = paddle.compat.nn.Linear(self.hidden_size, self.kv_dim, bias=False)
         self.v_proj = paddle.compat.nn.Linear(self.hidden_size, self.kv_dim, bias=False)

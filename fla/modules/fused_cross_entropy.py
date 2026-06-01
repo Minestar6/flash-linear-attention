@@ -267,6 +267,7 @@ class CrossEntropyLossFunction(torch.autograd.Function):
     @input_guard
     def backward(ctx, grad_losses, grad_z_losses):
         del grad_z_losses  # z_losses are only for logging.
+
         logits, lse, target = ctx.saved_tensor()
         dlogits = logits if ctx.inplace_backward else torch.empty_like(logits)
         n_rows, n_cols = logits.shape

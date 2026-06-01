@@ -165,13 +165,14 @@ class CausalConv1dFunctionCP(torch.autograd.Function):
             chunk_indices=chunk_indices,
             BT=chunk_size,
         )
-
         return y
+
 
     @staticmethod
     def backward(ctx, dy: torch.Tensor):
         # Import here to avoid circular dependency
         from fla.modules.conv.triton.ops import causal_conv1d_bwd
+
         x, weight, bias, initial_state = ctx.saved_tensor()
         group = ctx.group
         W = ctx.W

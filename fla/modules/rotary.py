@@ -357,6 +357,7 @@ class RotaryEmbedding(nn.Module):
         self.interleaved = interleaved
         self.pos_idx_in_fp32 = pos_idx_in_fp32
         self.device = device
+
         self.register_buffer('inv_freq', torch.empty(-(dim // -2), dtype=torch.float32,
                              device=device if device is not None else 'cpu'), persistent=False)
 

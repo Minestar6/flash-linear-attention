@@ -14,17 +14,20 @@
 
 import logging
 import math
-
 import paddle
 import paddleformers
 import torch
 from torch import nn
-
 from ...paddle_utils import *
-
 try:
     from torch.distributed._tensor.placement_types import Placement, Replicate
+
+
     from torch.distributed.device_mesh import DeviceMesh
+
+
+
+
     from torch.distributed.tensor import DTensor
 except (ImportError, AttributeError):
     Placement = None
@@ -43,6 +46,8 @@ try:
     from transformers.modeling_layers import GradientCheckpointingLayer
 except ImportError:
     from fla.models.modeling_layers import GradientCheckpointingLayer
+
+
 logger = logging.getLogger(name=__name__)
 
 
@@ -189,6 +194,7 @@ class Mamba2PreTrainedModel(paddleformers.transformers.PretrainedModel):
 
                 module.dt_bias.copy_(inv_dt)
             module.dt_bias._no_reinit = True
+
         elif isinstance(module, (paddle.compat.nn.Linear, nn.Conv1d)):
             # Slightly different from the TF version which uses truncated_normal for initialization
             # cf https://github.com/pytorch/pytorch/pull/5617
@@ -299,14 +305,15 @@ class Mamba2Model(Mamba2PreTrainedModel):
 
             if output_attentions:
                 all_attns = all_attns + (attentions,)
-
         hidden_states = self.norm_f(hidden_states)
+
 
         if output_hidden_states:
             all_hidden_states = all_hidden_states + (hidden_states,)
 
         if not return_dict:
             return tuple(i for i in [hidden_states, past_key_values, all_hidden_states, all_attns] if i is not None)
+
         return paddleformers.transformers.model_outputs.BaseModelOutputWithPast(
             last_hidden_state=hidden_states,
             past_key_values=past_key_values,
@@ -392,6 +399,7 @@ class Mamba2ForCausalLM(Mamba2PreTrainedModel, FLAGenerationMixin):
         if not return_dict:
             output = (logits,) + outputs[1:]
             return (loss,) + output if loss is not None else output
+
         return paddleformers.transformers.model_outputs.CausalLMOutputWithPast(
             loss=loss,
             logits=logits,

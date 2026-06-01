@@ -35,6 +35,7 @@ try:
     from transformers.modeling_layers import GradientCheckpointingLayer
 except ImportError:
     from fla.models.modeling_layers import GradientCheckpointingLayer
+
 logger = logging.getLogger(name=__name__)
 
 
@@ -65,7 +66,11 @@ class RodimusBlock(GradientCheckpointingLayer):
             hidden_act=config.hidden_act,
             fuse_swiglu=config.fuse_swiglu,
         )
-        norm_cls = partial(RMSNorm, config.hidden_size, eps=config.norm_eps)
+        norm_cls = partial(
+            RMSNorm if self.fuse_norm else nn.RMSNorm,
+            config.hidden_size,
+            eps=config.norm_eps,
+        )
 
         if config.attn is not None and layer_idx in config.attn['layers']:
             self._is_ori_attn = True
@@ -253,6 +258,7 @@ class RodimusPreTrainedModel(paddleformers.transformers.PretrainedModel):
         prenorm_residual_strategy: str | None = None,
     ):
         num_residuals_per_layer = self.num_residuals_per_layer
+
         if isinstance(module, (paddle.compat.nn.Linear, nn.Conv1d)):
             # Slightly different from the TF version which uses truncated_normal for initialization
             # cf https://github.com/pytorch/pytorch/pull/5617
@@ -345,7 +351,7 @@ class RodimusModel(RodimusPreTrainedModel):
 
         self.embeddings = nn.Embedding(config.vocab_size, config.hidden_size, self.padding_idx)
         self.layers = nn.ModuleList([RodimusBlock(config, layer_idx) for layer_idx in range(config.num_hidden_layers)])
-        self.norm = RMSNorm(config.hidden_size, eps=config.norm_eps)
+        self.norm = (RMSNorm if config.fuse_norm else nn.RMSNorm)(config.hidden_size, eps=config.norm_eps)
 
         self.gradient_checkpointing = False
 
@@ -545,6 +551,7 @@ class RodimusForCausalLM(RodimusPreTrainedModel, FLAGenerationMixin):
         if not return_dict:
             output = (logits,) + outputs[1:]
             return (loss,) + output if loss is not None else output
+
         return paddleformers.transformers.model_outputs.CausalLMOutputWithPast(
             loss=loss,
             logits=logits,

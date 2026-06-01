@@ -34,6 +34,10 @@ Repository = "https://github.com/fla-org/flash-linear-attention"
 [build-system]
 requires = ["setuptools>=45", "wheel"]
 
+[tool.setuptools.packages.find]
+where = ["."]
+exclude = ["fla.models", "fla.models.*"]
+
 [tool.pytest.ini_options]
 log_cli = true
 log_cli_level = "INFO"

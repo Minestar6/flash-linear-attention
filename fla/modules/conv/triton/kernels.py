@@ -624,6 +624,7 @@ def causal_conv1d_update(
     else:
         # Fallback / Error case
         raise ValueError(f"Unsupported input shape: {x.shape}")
+
     y = torch.empty_like(x)
 
     if y.dim() == 2:

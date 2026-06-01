@@ -1,8 +1,8 @@
 # Copyright (c) 2023-2025, Songlin Yang, Yu Zhang
-
 from __future__ import annotations
 
 import logging
+
 from typing import TYPE_CHECKING
 
 import paddle
@@ -16,6 +16,7 @@ from fla.ops.utils.index import prepare_lens_from_mask
 
 if TYPE_CHECKING:
     from fla.models.utils import Cache
+
 logger = logging.getLogger(name=__name__)
 
 
@@ -79,6 +80,7 @@ class DeltaFormerAttention(nn.Module):
         self.rope_theta = rope_theta
         self.max_position_embeddings = max_position_embeddings
         self.layer_idx = layer_idx
+
         self.q_proj = paddle.compat.nn.Linear(self.hidden_size, self.hidden_size, bias=self.qkv_bias)
         self.k_proj = paddle.compat.nn.Linear(self.hidden_size, self.kv_dim, bias=self.qkv_bias)
         self.v_proj = paddle.compat.nn.Linear(self.hidden_size, self.kv_dim, bias=self.qkv_bias)

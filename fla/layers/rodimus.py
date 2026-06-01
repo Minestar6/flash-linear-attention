@@ -20,6 +20,9 @@ from fla.layers.utils import (
     unpad_input,
     update_layer_cache,
 )
+
+
+
 from fla.modules import RMSNorm, RotaryEmbedding, ShortConvolution
 from fla.modules.layernorm_gated import RMSNormGated
 from fla.ops.gla import chunk_gla, fused_chunk_gla, fused_recurrent_gla
@@ -73,8 +76,8 @@ class RodimusAttention(nn.Module):
         self.use_short_conv = use_short_conv
         self.conv_size = conv_size
         self.conv_bias = conv_bias
-
         self.norm_eps = norm_eps
+
         self.k_norm_eps = k_norm_eps if k_norm_eps is not None else 1e-12
         self.mem_size = expand_ratio
 
@@ -82,6 +85,7 @@ class RodimusAttention(nn.Module):
         self.layer_idx = layer_idx
 
         assert mode in ['chunk', 'fused_recurrent', 'fused_chunk'], f"Not supported mode `{mode}`."
+
         self.gate_proj = paddle.compat.nn.Linear(self.hidden_size, self.d_inner, bias=False)
         self.up_proj = paddle.compat.nn.Linear(self.hidden_size, self.d_inner, bias=False)
         self.activation_norm = RMSNormGated(hidden_size=self.d_inner, eps=norm_eps, norm_before_gate=False)
@@ -97,8 +101,10 @@ class RodimusAttention(nn.Module):
 
         self.residual_weight = nn.Parameter(torch.ones(
             (self.d_inner, ), dtype=torch.float32 if self.residual_in_fp32 else None), requires_grad=True)
+
         self.k_proj = paddle.compat.nn.Linear(self.d_inner, self.mem_size, bias=False)
         self.q_proj = paddle.compat.nn.Linear(self.d_inner, self.mem_size, bias=False)
+
         self.g_gate_proj = paddle.compat.nn.Linear(self.d_inner, self.mem_size, bias=True)
         self.tau_gate_proj = paddle.compat.nn.Linear(self.d_inner, self.mem_size, bias=True)
         self.i_gate_proj = nn.Sequential(
@@ -152,6 +158,7 @@ class RodimusAttention(nn.Module):
         q = self.q_proj(shift_hidden_states)
         k = self.k_proj(shift_hidden_states)
         v = self.i_gate_proj(hidden_states) * hidden_states
+
         g_gate = paddle.compat.nn.functional.linear(shift_hidden_states, self.g_gate_proj.weight) + self.g_gate_proj.bias.float()
         tau_gate = paddle.compat.nn.functional.linear(shift_hidden_states, self.tau_gate_proj.weight) + self.tau_gate_proj.bias.float()
 
@@ -252,6 +259,7 @@ class SlidingWindowSharedKeyAttention(nn.Module):
         self.rope_theta = rope_theta
         self.max_position_embeddings = max_position_embeddings
         self.layer_idx = layer_idx
+
         self.q_proj = paddle.compat.nn.Linear(self.hidden_size, self.hidden_size, bias=self.qkv_bias)
         self.k_proj = paddle.compat.nn.Linear(self.hidden_size, self.head_dim, bias=self.qkv_bias)
         self.v_proj = paddle.compat.nn.Linear(self.hidden_size, self.hidden_size, bias=self.qkv_bias)
@@ -327,6 +335,7 @@ class SlidingWindowSharedKeyAttention(nn.Module):
                 k, v = k_cached, v_cached
                 k = rearrange(k, '... (h d) -> ... h d', d=self.head_dim)
                 v = rearrange(v, '... (h d) -> ... h d', d=self.head_dim)
+
 
         q, k, v = map(autocast_to_fp16, (q, k, v))
         k = repeat(k, "... h d -> ... (n h) d", n=self.num_heads)

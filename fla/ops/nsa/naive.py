@@ -80,6 +80,7 @@ def naive_nsa(
         else:
             T = cu_seqlens[i+1] - cu_seqlens[i]
             q_b, k_b, v_b, i_b = map(lambda x: x[0][cu_seqlens[i]:cu_seqlens[i+1]], (q, k, v, block_indices))
+
         i_b = i_b.unsqueeze(-1) * BS + paddle.to_tensor(data=range(BS), dtype=i_b.dtype)
         # [T, S*BS, HQ]
         i_b = i_b.view(T, block_indices.shape[2], -1).transpose(1, 2)

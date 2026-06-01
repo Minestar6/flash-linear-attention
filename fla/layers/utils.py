@@ -1,11 +1,10 @@
 # Copyright (c) 2023-2025, Songlin Yang, Yu Zhang
-
 # Code is adapted from flash-attn.bert_padding.py
+
 
 
 import torch
 from einops import rearrange, repeat
-
 from fla.ops.utils.index import prepare_cu_seqlens_from_mask, prepare_lens_from_mask
 from fla.utils import tensor_cache
 

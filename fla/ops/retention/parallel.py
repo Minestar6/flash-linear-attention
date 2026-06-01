@@ -67,14 +67,5 @@ def parallel_retention(
         g=g,
         output_attentions=output_attentions,
         cu_seqlens=cu_seqlens,
-    )
-# Copyright (c) 2023-2025, Songlin Yang, Yu Zhang
-# Copyright (c) 2023-2025, Songlin Yang, Yu Zhang
-# Copyright (c) 2023-2025, Songlin Yang, Yu Zhang
-# Copyright (c) 2023-2025, Songlin Yang, Yu Zhang
-# Copyright (c) 2023-2025, Songlin Yang, Yu Zhang
-# Copyright (c) 2023-2025, Songlin Yang, Yu Zhang
-# Copyright (c) 2023-2025, Songlin Yang, Yu Zhang
-# Copyright (c) 2023-2025, Songlin Yang, Yu Zhang
-# Copyright (c) 2023-2025, Songlin Yang, Yu Zhang
+    )  
     return o, attn

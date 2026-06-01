@@ -1,6 +1,7 @@
 import paddleformers
 
 from fla.models.delta_net.configuration_delta_net import DeltaNetConfig
+
 from fla.models.delta_net.modeling_delta_net import DeltaNetForCausalLM, DeltaNetModel
 
 paddleformers.transformers.AutoConfig.register(DeltaNetConfig.model_type, DeltaNetConfig, exist_ok=True)

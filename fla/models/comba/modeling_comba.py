@@ -1,5 +1,4 @@
 from __future__ import annotations
-
 import logging
 import math
 import warnings
@@ -9,8 +8,9 @@ import paddle
 import paddleformers
 import torch
 import torch.nn as nn
-from paddleformers.transformers.model_outputs import BaseModelOutputWithPast, CausalLMOutputWithPast
 
+
+from paddleformers.transformers.model_outputs import BaseModelOutputWithPast, CausalLMOutputWithPast
 from fla.layers.attn import Attention
 from fla.layers.comba import Comba
 from fla.models.comba.configuration_comba import CombaConfig
@@ -34,12 +34,14 @@ logger = logging.getLogger(name=__name__)
 
 class CombaBlock(GradientCheckpointingLayer):
 
+
     def __init__(self, config: CombaConfig, layer_idx: int):
         super().__init__()
 
         self.config = config
         self.layer_idx = layer_idx
-        self.attn_norm = RMSNorm(config.hidden_size, eps=config.norm_eps)
+
+        self.attn_norm = (RMSNorm if config.fuse_norm else nn.RMSNorm)(config.hidden_size, eps=config.norm_eps)
         if config.attn is not None and layer_idx in config.attn['layers']:
             self.attn = Attention(
                 hidden_size=config.hidden_size,
@@ -65,7 +67,7 @@ class CombaBlock(GradientCheckpointingLayer):
                 norm_eps=config.norm_eps,
                 layer_idx=layer_idx,
             )
-        self.mlp_norm = RMSNorm(config.hidden_size, eps=config.norm_eps)
+        self.mlp_norm = (RMSNorm if config.fuse_norm else nn.RMSNorm)(config.hidden_size, eps=config.norm_eps)
         self.mlp = CombaMLP(
             hidden_size=config.hidden_size,
             hidden_ratio=config.hidden_ratio,
@@ -137,6 +139,7 @@ class CombaPreTrainedModel(paddleformers.transformers.PretrainedModel):
                     inv_dt = dt + torch.log(-torch.expm1(-dt))
                     module.dt_bias.copy_(inv_dt)
                 module.dt_bias._no_weight_decay = True
+
         elif isinstance(module, (paddle.compat.nn.Linear, nn.Conv1d)):
             # Slightly different from the TF version which uses truncated_normal for initialization
             # cf https://github.com/pytorch/pytorch/pull/5617
@@ -184,7 +187,7 @@ class CombaModel(CombaPreTrainedModel):
 
         self.embeddings = nn.Embedding(config.vocab_size, config.hidden_size, self.padding_idx)
         self.layers = nn.ModuleList([CombaBlock(config, layer_idx) for layer_idx in range(config.num_hidden_layers)])
-        self.norm = RMSNorm(config.hidden_size, eps=config.norm_eps)
+        self.norm = (RMSNorm if config.fuse_norm else nn.RMSNorm)(config.hidden_size, eps=config.norm_eps)
 
         self.gradient_checkpointing = False
 
@@ -368,6 +371,7 @@ class CombaForCausalLM(CombaPreTrainedModel, FLAGenerationMixin):
         if not return_dict:
             output = (logits,) + outputs[1:]
             return (loss,) + output if loss is not None else output
+
         return paddleformers.transformers.model_outputs.CausalLMOutputWithPast(
             loss=loss,
             logits=logits,

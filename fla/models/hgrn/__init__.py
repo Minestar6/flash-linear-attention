@@ -1,6 +1,7 @@
 import paddleformers
 
 from fla.models.hgrn.configuration_hgrn import HGRNConfig
+
 from fla.models.hgrn.modeling_hgrn import HGRNForCausalLM, HGRNModel
 
 paddleformers.transformers.AutoConfig.register(HGRNConfig.model_type, HGRNConfig, exist_ok=True)

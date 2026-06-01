@@ -89,6 +89,7 @@ class GatedDeltaProduct(nn.Module):
                 f"Resulting head_v_dim would be {head_dim * expand_v}, which is invalid for FusedRMSNormGated.",
             )
         assert mode in ['chunk', 'fused_recurrent'], f"Not supported mode `{mode}`."
+
         self.q_proj = paddle.compat.nn.Linear(hidden_size, self.key_dim, bias=False)
         self.k_proj = paddle.compat.nn.Linear(hidden_size, self.key_dim * num_householder, bias=False)
         self.v_proj = paddle.compat.nn.Linear(hidden_size, self.value_dim * num_householder, bias=False)

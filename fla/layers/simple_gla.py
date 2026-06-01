@@ -107,6 +107,7 @@ class SimpleGatedLinearAttention(nn.Module):
 
         self.head_k_dim = self.key_dim // num_heads
         self.head_v_dim = self.value_dim // num_heads
+
         self.q_proj = paddle.compat.nn.Linear(hidden_size, self.key_dim, bias=False)
         self.k_proj = paddle.compat.nn.Linear(hidden_size, self.key_dim_per_group, bias=False)
         self.v_proj = paddle.compat.nn.Linear(hidden_size, self.value_dim_per_group, bias=False)

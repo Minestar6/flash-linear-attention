@@ -1,5 +1,5 @@
-
 # Copyright (c) 2023-2025, Songlin Yang, Yu Zhang
+
 import contextlib
 import functools
 import inspect
@@ -11,14 +11,12 @@ from collections.abc import Callable
 from enum import Enum
 from functools import lru_cache
 from typing import TYPE_CHECKING, Any
-
 import paddle
 import torch
 import triton
 from packaging import version
 
 from .paddle_utils import *
-
 logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
@@ -518,16 +516,12 @@ def check_shared_mem(arch: str = "none", tensor_idx: int = 0) -> bool:
     except Exception:
         return False
 
-
 def _identity_decorator(fn=None, **_kwargs):
-
     def decorator(f):
         return f
     if fn is not None:
         return decorator(fn)
     return decorator
-
-
 autocast_custom_fwd = _identity_decorator
 autocast_custom_bwd = _identity_decorator
 
@@ -558,13 +552,4 @@ def _register_aliases():
 
 _register_aliases()
 
-# Copyright (c) 2023-2025, Songlin Yang, Yu Zhang
-# Copyright (c) 2023-2025, Songlin Yang, Yu Zhang
-# Copyright (c) 2023-2025, Songlin Yang, Yu Zhang
-# Copyright (c) 2023-2025, Songlin Yang, Yu Zhang
-# Copyright (c) 2023-2025, Songlin Yang, Yu Zhang
-# Copyright (c) 2023-2025, Songlin Yang, Yu Zhang
-# Copyright (c) 2023-2025, Songlin Yang, Yu Zhang
-# Copyright (c) 2023-2025, Songlin Yang, Yu Zhang
-# Copyright (c) 2023-2025, Songlin Yang, Yu Zhang
 del _register_aliases

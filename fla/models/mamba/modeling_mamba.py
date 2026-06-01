@@ -11,11 +11,13 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
 import math
 import logging
 import paddle
 import paddleformers
 import torch
+
 from paddleformers.transformers.model_outputs import BaseModelOutputWithPast, CausalLMOutputWithPast
 from torch import nn
 
@@ -31,6 +33,7 @@ try:
     from transformers.modeling_layers import GradientCheckpointingLayer
 except ImportError:
     from fla.models.modeling_layers import GradientCheckpointingLayer
+
 logger = logging.getLogger(name=__name__)
 
 
@@ -224,14 +227,15 @@ class MambaModel(MambaPreTrainedModel):
 
             if output_attentions and attentions is not None:
                 all_attns = all_attns + (attentions,)
-
         hidden_states = self.norm_f(hidden_states)
+
 
         if output_hidden_states:
             all_hidden_states = all_hidden_states + (hidden_states,)
 
         if not return_dict:
             return tuple(i for i in [hidden_states, past_key_values, all_hidden_states, all_attns] if i is not None)
+
         return paddleformers.transformers.model_outputs.BaseModelOutputWithPast(
             last_hidden_state=hidden_states,
             past_key_values=past_key_values,
@@ -318,6 +322,7 @@ class MambaForCausalLM(MambaPreTrainedModel, FLAGenerationMixin):
         if not return_dict:
             output = (logits,) + outputs[1:]
             return (loss,) + output if loss is not None else output
+
         return paddleformers.transformers.model_outputs.CausalLMOutputWithPast(
             loss=loss,
             logits=logits,

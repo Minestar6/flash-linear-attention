@@ -122,6 +122,7 @@ class DeltaNet(nn.Module):
         assert mode in ['chunk', 'fused_recurrent'], f"Not supported mode `{mode}`."
         assert self.key_dim % num_heads == 0, f"key dim must be divisible by num_heads of {num_heads}"
         assert self.value_dim % num_heads == 0, f"value dim must be divisible by num_heads of {num_heads}"
+
         self.q_proj = paddle.compat.nn.Linear(hidden_size, self.key_dim, bias=False)
         self.k_proj = paddle.compat.nn.Linear(hidden_size, self.key_dim, bias=False)
         self.v_proj = paddle.compat.nn.Linear(hidden_size, self.value_dim, bias=False)

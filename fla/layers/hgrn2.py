@@ -3,10 +3,10 @@
 # "HGRN2: Gated Linear RNNs with State Expansion"[https://arxiv.org/abs/2404.07904]
 
 from __future__ import annotations
-
 from typing import TYPE_CHECKING
 
 import paddle
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -20,6 +20,7 @@ from fla.ops.gla import chunk_gla, fused_chunk_gla, fused_recurrent_gla
 
 if TYPE_CHECKING:
     from paddleformers.transformers.processing_utils import Unpack
+
     from fla.models.utils import Cache
 
 
@@ -66,6 +67,7 @@ class HGRN2Attention(nn.Module):
 
         self.head_f_dim = self.expand_ratio
         self.head_i_dim = self.hidden_size // num_heads
+
         self.q_proj = paddle.compat.nn.Linear(hidden_size, self.forget_dim, bias=False)
         self.f_proj = paddle.compat.nn.Linear(hidden_size, self.forget_dim, bias=False)
         self.i_proj = paddle.compat.nn.Linear(hidden_size, self.input_dim, bias=False)

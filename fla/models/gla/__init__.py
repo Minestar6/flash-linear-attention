@@ -1,6 +1,7 @@
 import paddleformers
 
 from fla.models.gla.configuration_gla import GLAConfig
+
 from fla.models.gla.modeling_gla import GLAForCausalLM, GLAModel
 
 paddleformers.transformers.AutoConfig.register(GLAConfig.model_type, GLAConfig, exist_ok=True)

@@ -34,7 +34,9 @@ with warnings.catch_warnings():
     ))
 if TYPE_CHECKING:
     from paddleformers.transformers.processing_utils import Unpack
+
     from fla.models.utils import Cache
+
 logger = logging.getLogger(name=__name__)
 
 

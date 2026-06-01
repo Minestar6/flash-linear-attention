@@ -1,5 +1,4 @@
 from __future__ import annotations
-
 import logging
 import math
 import warnings
@@ -9,8 +8,9 @@ import paddle
 import paddleformers
 import torch
 import torch.nn as nn
-from paddleformers.transformers.model_outputs import BaseModelOutputWithPast, CausalLMOutputWithPast
 
+
+from paddleformers.transformers.model_outputs import BaseModelOutputWithPast, CausalLMOutputWithPast
 from fla.layers.attn import Attention
 from fla.layers.hgrn2 import HGRN2Attention
 from fla.models.hgrn2.configuration_hgrn2 import HGRN2Config
@@ -34,12 +34,14 @@ logger = logging.getLogger(name=__name__)
 
 class HGRN2Block(GradientCheckpointingLayer):
 
+
     def __init__(self, config: HGRN2Config, layer_idx: int):
         super().__init__()
 
         self.config = config
         self.layer_idx = layer_idx
-        self.attn_norm = RMSNorm(config.hidden_size, eps=config.norm_eps)
+
+        self.attn_norm = (RMSNorm if config.fuse_norm else nn.RMSNorm)(config.hidden_size, eps=config.norm_eps)
         if config.attn is not None and layer_idx in config.attn['layers']:
             self.attn = Attention(
                 hidden_size=config.hidden_size,
@@ -63,7 +65,7 @@ class HGRN2Block(GradientCheckpointingLayer):
                 norm_eps=config.norm_eps,
                 layer_idx=layer_idx,
             )
-        self.mlp_norm = RMSNorm(config.hidden_size, eps=config.norm_eps)
+        self.mlp_norm = (RMSNorm if config.fuse_norm else nn.RMSNorm)(config.hidden_size, eps=config.norm_eps)
         self.mlp = HGRN2MLP(
             hidden_size=config.hidden_size,
             hidden_ratio=config.hidden_ratio,
@@ -173,7 +175,7 @@ class HGRN2Model(HGRN2PreTrainedModel):
         if config.use_lower_bound:
             self.lower_bounds = nn.Parameter(torch.zeros(config.num_hidden_layers, config.hidden_size))
         self.layers = nn.ModuleList([HGRN2Block(config, layer_idx) for layer_idx in range(config.num_hidden_layers)])
-        self.norm = RMSNorm(config.hidden_size, eps=config.norm_eps)
+        self.norm = (RMSNorm if config.fuse_norm else nn.RMSNorm)(config.hidden_size, eps=config.norm_eps)
 
         self.gradient_checkpointing = False
 
@@ -363,6 +365,7 @@ class HGRN2ForCausalLM(HGRN2PreTrainedModel, FLAGenerationMixin):
         if not return_dict:
             output = (logits,) + outputs[1:]
             return (loss,) + output if loss is not None else output
+
         return paddleformers.transformers.model_outputs.CausalLMOutputWithPast(
             loss=loss,
             logits=logits,

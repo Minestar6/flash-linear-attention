@@ -327,6 +327,7 @@ class MomAttention(nn.Module):
         self.silu = nn.SiLU()
 
         assert mode in ['chunk', 'fused_recurrent'], f"Not suppoerted mode `{mode}`."
+
         self.q_proj = paddle.compat.nn.Linear(hidden_size, self.key_dim, bias=False)
         self.gate = paddle.compat.nn.Linear(self.hidden_size, self.num_memories, bias=False)
         if self.single_kv_proj:

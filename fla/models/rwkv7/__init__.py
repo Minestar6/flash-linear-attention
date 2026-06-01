@@ -1,6 +1,7 @@
 import paddleformers
 
 from fla.models.rwkv7.configuration_rwkv7 import RWKV7Config
+
 from fla.models.rwkv7.modeling_rwkv7 import RWKV7ForCausalLM, RWKV7Model
 
 paddleformers.transformers.AutoConfig.register(RWKV7Config.model_type, RWKV7Config, exist_ok=True)

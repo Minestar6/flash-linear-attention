@@ -1,6 +1,7 @@
 import paddleformers
 
 from fla.models.gated_deltanet.configuration_gated_deltanet import GatedDeltaNetConfig
+
 from fla.models.gated_deltanet.modeling_gated_deltanet import GatedDeltaNetForCausalLM, GatedDeltaNetModel
 
 paddleformers.transformers.AutoConfig.register(GatedDeltaNetConfig.model_type, GatedDeltaNetConfig, exist_ok=True)

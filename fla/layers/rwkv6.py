@@ -231,6 +231,7 @@ class LoRA(nn.Module):
             self.activation = nn.ReLU()
         else:
             raise ValueError(f"Not supported activation `{activation}`.")
+
         self.lora = nn.Sequential(
             paddle.compat.nn.Linear(input_dim, low_rank_dim, bias=False),
             self.activation,

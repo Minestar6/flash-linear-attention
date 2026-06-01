@@ -50,6 +50,7 @@ class HGRNAttention(nn.Module):
         self.layer_idx = layer_idx
 
         assert mode in ['chunk', 'fused_recurrent'], f"Not supported mode `{mode}`."
+
         self.i_proj = paddle.compat.nn.Linear(hidden_size, self.input_dim, bias=False)
         self.f_proj = paddle.compat.nn.Linear(hidden_size, self.input_dim, bias=False)
         self.g_proj = paddle.compat.nn.Linear(hidden_size, self.input_dim, bias=False)

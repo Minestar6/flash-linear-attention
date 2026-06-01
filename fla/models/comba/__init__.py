@@ -1,6 +1,7 @@
 import paddleformers
 
 from fla.models.comba.configuration_comba import CombaConfig
+
 from fla.models.comba.modeling_comba import CombaForCausalLM, CombaModel
 
 paddleformers.transformers.AutoConfig.register(CombaConfig.model_type, CombaConfig, exist_ok=True)

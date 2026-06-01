@@ -83,6 +83,7 @@ class ABCAttention(nn.Module):
                 "to errors during the forward call, if caching is used. Please make sure to provide a `layer_idx` "
                 "when creating this class.",
             )
+
         self.q_proj = paddle.compat.nn.Linear(self.hidden_size, self.key_dim, bias=False)
         self.k_proj = paddle.compat.nn.Linear(self.hidden_size, self.key_dim, bias=False)
         self.v_proj = paddle.compat.nn.Linear(self.hidden_size, self.value_dim, bias=False)

@@ -68,6 +68,7 @@ class LightNetAttention(nn.Module):
 
         self.head_f_dim = self.expand_ratio
         self.head_i_dim = self.hidden_size // num_heads
+
         self.q_proj = paddle.compat.nn.Linear(hidden_size, self.key_dim, bias=False)
         self.k_proj = paddle.compat.nn.Linear(hidden_size, self.key_dim, bias=False)
         self.v_proj = paddle.compat.nn.Linear(hidden_size, self.value_dim, bias=False)
@@ -92,6 +93,7 @@ class LightNetAttention(nn.Module):
                 bias=conv_bias,
                 activation=None,
             )
+
         self.g_proj = nn.Sequential(
             paddle.compat.nn.Linear(hidden_size, gate_low_rank_dim, bias=False),
             paddle.compat.nn.Linear(gate_low_rank_dim, hidden_size, bias=False),

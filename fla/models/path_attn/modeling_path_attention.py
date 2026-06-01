@@ -1,13 +1,13 @@
 from __future__ import annotations
-
 import logging
+
 import math
 import warnings
 from typing import TYPE_CHECKING, Any
-
 import paddle
 import paddleformers
 import torch
+
 import torch.nn as nn
 from paddleformers.transformers.model_outputs import CausalLMOutputWithPast
 
@@ -33,12 +33,14 @@ logger = logging.getLogger(name=__name__)
 
 class PaTHAttentionBlock(GradientCheckpointingLayer):
 
+
     def __init__(self, config: PaTHAttentionConfig, layer_idx: int):
         super().__init__()
 
         self.config = config
         self.layer_idx = layer_idx
-        self.attn_norm = RMSNorm(config.hidden_size, eps=config.norm_eps)
+
+        self.attn_norm = (RMSNorm if config.fuse_norm else nn.RMSNorm)(config.hidden_size, eps=config.norm_eps)
         self.attn = PaTHAttention(
             hidden_size=config.hidden_size,
             num_heads=config.num_heads,
@@ -48,7 +50,8 @@ class PaTHAttentionBlock(GradientCheckpointingLayer):
             use_low_rank_w=config.use_low_rank_w,
             layer_idx=layer_idx,
         )
-        self.mlp_norm = RMSNorm(config.hidden_size, eps=config.norm_eps)
+
+        self.mlp_norm = (RMSNorm if config.fuse_norm else nn.RMSNorm)(config.hidden_size, eps=config.norm_eps)
         self.mlp = PaTHAttentionMLP(
             hidden_size=config.hidden_size,
             hidden_ratio=config.hidden_ratio,
@@ -162,7 +165,7 @@ class PaTHAttentionModel(PaTHAttentionPreTrainedModel):
             PaTHAttentionBlock(config, layer_idx)
             for layer_idx in range(config.num_hidden_layers)
         ])
-        self.norm = RMSNorm(config.hidden_size, eps=config.norm_eps)
+        self.norm = (RMSNorm if config.fuse_norm else nn.RMSNorm)(config.hidden_size, eps=config.norm_eps)
 
         self.gradient_checkpointing = False
 
@@ -236,8 +239,8 @@ class PaTHAttentionModel(PaTHAttentionPreTrainedModel):
 
             if output_attentions:
                 all_attns += (layer_outputs[1],)
-
         hidden_states = self.norm(hidden_states)
+
 
         # add hidden states from the last decoder layer
         if output_hidden_states:
@@ -245,6 +248,7 @@ class PaTHAttentionModel(PaTHAttentionPreTrainedModel):
 
         if not return_dict:
             return tuple(v for v in [hidden_states, next_cache, all_hidden_states, all_attns] if v is not None)
+
         return paddleformers.transformers.model_outputs.BaseModelOutputWithPast(
             last_hidden_state=hidden_states,
             past_key_values=next_cache,
@@ -345,6 +349,7 @@ class PaTHAttentionForCausalLM(PaTHAttentionPreTrainedModel, FLAGenerationMixin)
         if not return_dict:
             output = (logits,) + outputs[1:]
             return (loss,) + output if loss is not None else output
+
         return paddleformers.transformers.model_outputs.CausalLMOutputWithPast(
             loss=loss,
             logits=logits,

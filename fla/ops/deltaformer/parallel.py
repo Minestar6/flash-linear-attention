@@ -1,5 +1,5 @@
-
 # Copyright (c) 2023-2025, Songlin Yang, Yu Zhang
+
 import math
 
 import paddle
@@ -8,9 +8,11 @@ import triton
 import triton.language as tl
 
 from fla.layers.utils import pad_input, unpad_input
-
 from ...paddle_utils import *
 from . import invcum
+
+
+
 
 BLOCK_SIZE_C = 512
 

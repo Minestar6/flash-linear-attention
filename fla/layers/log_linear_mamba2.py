@@ -20,6 +20,7 @@ from ..paddle_utils import *
 
 if TYPE_CHECKING:
     from fla.models.utils import Cache
+
 logger = logging.getLogger(name=__name__)
 
 

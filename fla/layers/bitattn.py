@@ -1,8 +1,8 @@
 # Copyright (c) 2023-2025, Songlin Yang, Yu Zhang
 
 from __future__ import annotations
-
 import logging
+
 from typing import TYPE_CHECKING
 
 import paddle
@@ -108,6 +108,7 @@ class BitAttention(nn.Module):
                 k, v = k_cached, v_cached
                 k = rearrange(k, '... (h d) -> ... h d', d=self.head_dim)
                 v = rearrange(v, '... (h d) -> ... h d', d=self.head_dim)
+
 
         # Contains at least one padding token in the sequence
         if attention_mask is not None:

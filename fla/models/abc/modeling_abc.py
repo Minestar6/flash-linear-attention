@@ -25,6 +25,7 @@ try:
     from transformers.modeling_layers import GradientCheckpointingLayer
 except ImportError:
     from fla.models.modeling_layers import GradientCheckpointingLayer
+
 logger = logging.getLogger(name=__name__)
 
 if TYPE_CHECKING:
@@ -38,7 +39,8 @@ class ABCBlock(GradientCheckpointingLayer):
 
         self.config = config
         self.layer_idx = layer_idx
-        self.attn_norm = RMSNorm(config.hidden_size, eps=config.norm_eps)
+
+        self.attn_norm = (RMSNorm if config.fuse_norm else nn.RMSNorm)(config.hidden_size, eps=config.norm_eps)
         if config.attn is not None and layer_idx in config.attn['layers']:
             self.attn = Attention(
                 hidden_size=config.hidden_size,
@@ -68,7 +70,7 @@ class ABCBlock(GradientCheckpointingLayer):
                 fuse_norm=config.fuse_norm,
                 layer_idx=layer_idx,
             )
-        self.mlp_norm = RMSNorm(config.hidden_size, eps=config.norm_eps)
+        self.mlp_norm = (RMSNorm if config.fuse_norm else nn.RMSNorm)(config.hidden_size, eps=config.norm_eps)
         self.mlp = ABCMLP(
             hidden_size=config.hidden_size,
             hidden_ratio=config.hidden_ratio,
@@ -176,7 +178,7 @@ class ABCModel(ABCPreTrainedModel):
 
         self.embeddings = nn.Embedding(config.vocab_size, config.hidden_size, self.padding_idx)
         self.layers = nn.ModuleList([ABCBlock(config, layer_idx) for layer_idx in range(config.num_hidden_layers)])
-        self.norm = RMSNorm(config.hidden_size, eps=config.norm_eps)
+        self.norm = (RMSNorm if config.fuse_norm else nn.RMSNorm)(config.hidden_size, eps=config.norm_eps)
 
         self.gradient_checkpointing = False
 

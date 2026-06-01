@@ -3,10 +3,10 @@ from __future__ import annotations
 import logging
 import warnings
 from typing import TYPE_CHECKING, Optional
-
 import paddle
 import paddleformers
 import torch
+
 import torch.nn as nn
 from paddleformers.transformers.model_outputs import BaseModelOutputWithPast, CausalLMOutputWithPast
 
@@ -23,6 +23,7 @@ try:
     from transformers.modeling_layers import GradientCheckpointingLayer
 except ImportError:
     from fla.models.modeling_layers import GradientCheckpointingLayer
+
 logger = logging.getLogger(name=__name__)
 
 if TYPE_CHECKING:
@@ -36,7 +37,8 @@ class DeltaFormerBlock(GradientCheckpointingLayer):
 
         self.config = config
         self.layer_idx = layer_idx
-        self.attn_norm = RMSNorm(config.hidden_size, eps=config.norm_eps)
+
+        self.attn_norm = (RMSNorm if config.fuse_norm else nn.RMSNorm)(config.hidden_size, eps=config.norm_eps)
         self.attn = DeltaFormerAttention(
             hidden_size=config.hidden_size,
             num_heads=config.num_heads,
@@ -47,7 +49,7 @@ class DeltaFormerBlock(GradientCheckpointingLayer):
             max_position_embeddings=config.rope_max_position_embeddings,
             layer_idx=layer_idx,
         )
-        self.mlp_norm = RMSNorm(config.hidden_size, eps=config.norm_eps)
+        self.mlp_norm = (RMSNorm if config.fuse_norm else nn.RMSNorm)(config.hidden_size, eps=config.norm_eps)
         self.mlp = DeltaFormerMLP(
             hidden_size=config.hidden_size,
             hidden_ratio=config.hidden_ratio,
@@ -123,7 +125,7 @@ class DeltaFormerModel(DeltaFormerPreTrainedModel):
 
         self.embeddings = nn.Embedding(config.vocab_size, config.hidden_size, self.padding_idx)
         self.layers = nn.ModuleList([DeltaFormerBlock(config, layer_idx) for layer_idx in range(config.num_hidden_layers)])
-        self.norm = RMSNorm(config.hidden_size, eps=config.norm_eps)
+        self.norm = (RMSNorm if config.fuse_norm else nn.RMSNorm)(config.hidden_size, eps=config.norm_eps)
 
         self.gradient_checkpointing = False
 

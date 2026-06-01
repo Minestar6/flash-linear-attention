@@ -85,9 +85,9 @@ def benchmark(B, T, D, provider):
         raise ValueError(provider)
 
     if provider.endswith('fwd'):
-        def fn_to_call(): return fwd(fn, *inputs)  # noqa: E731
+        fn_to_call = lambda: fwd(fn, *inputs)  # noqa: E731
     elif provider.endswith('fwdbwd'):
-        def fn_to_call(): return fwdbwd(fn, *inputs)  # noqa: E731
+        fn_to_call = lambda: fwdbwd(fn, *inputs)  # noqa: E731
     else:
         raise ValueError(provider)
 

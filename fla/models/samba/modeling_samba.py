@@ -10,6 +10,7 @@ import torch
 from paddleformers.transformers.model_outputs import BaseModelOutputWithPast, CausalLMOutputWithPast
 from torch import nn
 
+
 from fla.layers.attn import Attention
 from fla.layers.mamba import Mamba
 from fla.models.samba.configuration_samba import SambaConfig
@@ -28,6 +29,7 @@ try:
     from transformers.modeling_layers import GradientCheckpointingLayer
 except ImportError:
     from fla.models.modeling_layers import GradientCheckpointingLayer
+
 logger = logging.getLogger(name=__name__)
 
 
@@ -228,14 +230,15 @@ class SambaModel(SambaPreTrainedModel):
 
             if output_attentions and attentions is not None:
                 all_attns = all_attns + (attentions,)
-
         hidden_states = self.norm_f(hidden_states)
+
 
         if output_hidden_states:
             all_hidden_states = all_hidden_states + (hidden_states,)
 
         if not return_dict:
             return tuple(i for i in [hidden_states, past_key_values, all_hidden_states, all_attns] if i is not None)
+
         return paddleformers.transformers.model_outputs.BaseModelOutputWithPast(
             last_hidden_state=hidden_states,
             past_key_values=past_key_values,
@@ -322,6 +325,7 @@ class SambaForCausalLM(SambaPreTrainedModel, FLAGenerationMixin):
         if not return_dict:
             output = (logits,) + outputs[1:]
             return (loss,) + output if loss is not None else output
+
         return paddleformers.transformers.model_outputs.CausalLMOutputWithPast(
             loss=loss,
             logits=logits,

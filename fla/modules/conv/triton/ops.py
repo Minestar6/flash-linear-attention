@@ -45,6 +45,7 @@ def causal_conv1d_fwd(
     y = torch.empty_like(x)
 
     def grid(meta):
+
         return triton.cdiv(D, meta['BD']), NT, B
     causal_conv1d_fwd_kernel[grid](
         x=x,
@@ -303,6 +304,7 @@ def causal_conv1d_update(
     else:
         # Fallback / Error case
         raise ValueError(f"Unsupported input shape: {x.shape}")
+
     y = torch.empty_like(x)
 
     if y.dim() == 2:

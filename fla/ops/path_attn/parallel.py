@@ -273,5 +273,4 @@ def parallel_path_attn(
     o, k_cache = ParallelPATHAttentionFunction.apply(q, k, v, w, beta, g, scale, cu_seqlens, use_cache)
     return o, k_cache
 
-
 parallel_path_attention = parallel_path_attn

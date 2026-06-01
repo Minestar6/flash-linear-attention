@@ -33,6 +33,7 @@ with warnings.catch_warnings():
 
 if TYPE_CHECKING:
     from fla.models.utils import Cache
+
 logger = logging.getLogger(name=__name__)
 
 

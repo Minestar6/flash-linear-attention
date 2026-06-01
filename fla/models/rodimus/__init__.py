@@ -1,6 +1,7 @@
 import paddleformers
 
 from fla.models.rodimus.configuration_rodimus import RodimusConfig
+
 from fla.models.rodimus.modeling_rodimus import RodimusForCausalLM, RodimusModel
 
 paddleformers.transformers.AutoConfig.register(RodimusConfig.model_type, RodimusConfig, exist_ok=True)

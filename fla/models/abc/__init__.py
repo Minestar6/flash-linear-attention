@@ -1,6 +1,7 @@
 import paddleformers
 
 from fla.models.abc.configuration_abc import ABCConfig
+
 from fla.models.abc.modeling_abc import ABCForCausalLM, ABCModel
 
 paddleformers.transformers.AutoConfig.register(ABCConfig.model_type, ABCConfig, exist_ok=True)

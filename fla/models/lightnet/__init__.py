@@ -1,6 +1,7 @@
 import paddleformers
 
 from fla.models.lightnet.configuration_lightnet import LightNetConfig
+
 from fla.models.lightnet.modeling_lightnet import LightNetForCausalLM, LightNetModel
 
 paddleformers.transformers.AutoConfig.register(LightNetConfig.model_type, LightNetConfig, exist_ok=True)

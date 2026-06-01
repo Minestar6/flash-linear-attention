@@ -112,6 +112,7 @@ class KimiDeltaAttention(nn.Module):
                 f"Resulting head_v_dim would be {head_dim * expand_v}, which is invalid for FusedRMSNormGated.",
             )
         assert mode in ["chunk", "fused_recurrent"], f"Not supported mode `{mode}`."
+
         self.q_proj = paddle.compat.nn.Linear(hidden_size, self.key_dim, bias=False)
         self.k_proj = paddle.compat.nn.Linear(hidden_size, self.key_dim, bias=False)
         self.v_proj = paddle.compat.nn.Linear(hidden_size, self.value_dim, bias=False)
@@ -135,6 +136,7 @@ class KimiDeltaAttention(nn.Module):
                 bias=conv_bias,
                 activation="silu",
             )
+
         self.f_proj = nn.Sequential(
             paddle.compat.nn.Linear(hidden_size, self.head_v_dim, bias=False),
             paddle.compat.nn.Linear(self.head_v_dim, self.key_dim, bias=False),
@@ -149,6 +151,7 @@ class KimiDeltaAttention(nn.Module):
         inv_dt = dt + torch.log(-torch.expm1(-dt))
         self.dt_bias = nn.Parameter(inv_dt)
         self.dt_bias._no_weight_decay = True
+
         self.g_proj = nn.Sequential(
             paddle.compat.nn.Linear(hidden_size, self.head_v_dim, bias=False),
             paddle.compat.nn.Linear(self.head_v_dim, self.value_dim, bias=True),

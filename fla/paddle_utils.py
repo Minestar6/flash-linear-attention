@@ -1,6 +1,7 @@
 
-
 import paddle
+import torch
+from torch import nn
 
 ############################## 相关utils函数，如下 ##############################
 ############################ PaConvert 自动生成的代码 ###########################
@@ -107,3 +108,41 @@ def _Tensor_split(self, split_size, dim=0):
 
 
 paddle.Tensor.split = _Tensor_split
+
+
+# RMSNorm 兼容 - 等价于 torch.nn.RMSNorm
+if hasattr(paddle.compat.nn, 'RMSNorm'):
+    paddle.nn.RMSNorm = paddle.compat.nn.RMSNorm
+else:
+    class _NativeRMSNorm(paddle.nn.Layer):
+        def __init__(self, normalized_shape, eps=1e-5, elementwise_affine=True):
+            super().__init__()
+            if isinstance(normalized_shape, int):
+                normalized_shape = [normalized_shape]
+            else:
+                normalized_shape = list(normalized_shape)
+
+            self.normalized_shape = normalized_shape
+            self.eps = eps
+            self.elementwise_affine = elementwise_affine
+
+            if elementwise_affine:
+                self.weight = paddle.create_parameter(
+                    shape=normalized_shape,
+                    dtype="float32",
+                    default_initializer=paddle.nn.initializer.Constant(1.0),
+                )
+            else:
+                self.weight = None
+
+        def forward(self, x):
+            # 与 torch.nn.RMSNorm 一致：归一化最后1维
+            variance = x.pow(2).mean(axis=-1, keepdim=True)
+            out = x * paddle.rsqrt(variance + self.eps)
+
+            if self.weight is not None:
+                out = out * self.weight
+
+            return out
+
+    paddle.nn.RMSNorm = _NativeRMSNorm

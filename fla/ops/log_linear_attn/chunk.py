@@ -1698,8 +1698,8 @@ class ChunkLogLinearAttentionFunction(torch.autograd.Function):
                 level_scales_prev=level_scales_prev,
             )
             return o.sum(dim=-2), final_state
-
         return o.sum(dim=-2), None
+
 
     @staticmethod
     @input_guard
@@ -1707,6 +1707,7 @@ class ChunkLogLinearAttentionFunction(torch.autograd.Function):
     def backward(ctx, do, dht):
         if triton.__version__ < "3.1.0":
             raise ValueError("Triton>=3.1.0 is required")
+
         q, k, v, g, level_scales, initial_state, cu_seqlens = ctx.saved_tensor()
         chunk_size = ctx.chunk_size
         llut = ctx.llut

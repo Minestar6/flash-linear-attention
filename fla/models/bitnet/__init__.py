@@ -1,6 +1,7 @@
 import paddleformers
 
 from fla.models.bitnet.configuration_bitnet import BitNetConfig
+
 from fla.models.bitnet.modeling_bitnet import BitNetForCausalLM, BitNetModel
 
 paddleformers.transformers.AutoConfig.register(BitNetConfig.model_type, BitNetConfig, exist_ok=True)

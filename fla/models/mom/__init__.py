@@ -1,6 +1,7 @@
 import paddleformers
 
 from fla.models.mom.configuration_mom import MomConfig
+
 from fla.models.mom.modeling_mom import MomForCausalLM, MomModel
 
 paddleformers.transformers.AutoConfig.register(MomConfig.model_type, MomConfig, exist_ok=True)

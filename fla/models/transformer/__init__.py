@@ -1,6 +1,7 @@
 import paddleformers
 
 from fla.models.transformer.configuration_transformer import TransformerConfig
+
 from fla.models.transformer.modeling_transformer import TransformerForCausalLM, TransformerModel
 
 paddleformers.transformers.AutoConfig.register(TransformerConfig.model_type, TransformerConfig, exist_ok=True)

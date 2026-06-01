@@ -11,6 +11,7 @@ import torch
 import torch.nn as nn
 from paddleformers.transformers.model_outputs import BaseModelOutputWithPast, CausalLMOutputWithPast
 
+
 from fla.layers.attn import Attention
 from fla.layers.rwkv7 import RWKV7Attention
 from fla.models.rwkv7.configuration_rwkv7 import RWKV7Config
@@ -30,6 +31,7 @@ try:
     from transformers.modeling_layers import GradientCheckpointingLayer
 except ImportError:
     from fla.models.modeling_layers import GradientCheckpointingLayer
+
 logger = logging.getLogger(name=__name__)
 
 
@@ -535,6 +537,7 @@ class RWKV7ForCausalLM(RWKV7PreTrainedModel, FLAGenerationMixin):
         if not return_dict:
             output = (logits,) + outputs[1:]
             return (loss,) + output if loss is not None else output
+
         return paddleformers.transformers.model_outputs.CausalLMOutputWithPast(
             loss=loss,
             logits=logits,

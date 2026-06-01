@@ -1,5 +1,5 @@
-
 # Copyright (c) 2023-2025, Songlin Yang, Yu Zhang
+
 """
 Linear attention in Based.
 https://github.com/HazyResearch/zoology/blob/main/zoology/mixers/based.py
@@ -40,6 +40,7 @@ class BasedLinearAttention(nn.Module):
         self.head_dim = self.hidden_size // self.num_key_value_heads
         assert self.hidden_size % self.head_dim == 0
         self.causal = causal
+
         self.q_proj = paddle.compat.nn.Linear(self.hidden_size, self.feature_dim * self.num_heads, bias=False)
         self.k_proj = paddle.compat.nn.Linear(self.hidden_size, self.feature_dim * self.num_heads, bias=False)
         self.v_proj = paddle.compat.nn.Linear(self.hidden_size, self.num_key_value_heads * self.head_dim, bias=False)

@@ -82,6 +82,7 @@ class T2RFeatureMap(nn.Module):
         self.head_dim = head_dim
         self.dot_dim = dot_dim
         self.bias = bias
+
         self.layer = paddle.compat.nn.Linear(head_dim, dot_dim, bias=bias)
 
     def __repr__(self) -> str:

@@ -55,6 +55,7 @@ class GatedMLP(nn.Module):
 
         if hidden_act != 'swish':
             raise ValueError(f'Unsupported hidden_act: {hidden_act}')
+
         self.gate_proj = paddle.compat.nn.Linear(self.hidden_size, self.intermediate_size, bias=False)
         self.up_proj = paddle.compat.nn.Linear(self.hidden_size, self.intermediate_size, bias=False)
         self.down_proj = paddle.compat.nn.Linear(self.intermediate_size, self.hidden_size, bias=False)

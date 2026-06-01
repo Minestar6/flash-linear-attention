@@ -4,10 +4,10 @@
 
 https://github.com/huggingface/transformers/blob/main/src/transformers/models/deepseek_v3/modeling_deepseek_v3.py#L328
 """
-
 from __future__ import annotations
-
 import logging
+
+
 import math
 from typing import TYPE_CHECKING
 
@@ -76,6 +76,7 @@ class MultiheadLatentAttention(nn.Module):
         self.max_position_embeddings = max_position_embeddings
         self.layer_idx = layer_idx
 
+
         if q_lora_rank is not None:
             self.q_proj = nn.Sequential(
                 paddle.compat.nn.Linear(hidden_size, q_lora_rank, bias=False),
@@ -84,12 +85,14 @@ class MultiheadLatentAttention(nn.Module):
             )
         else:
             self.q_proj = paddle.compat.nn.Linear(hidden_size, self.num_heads * self.qk_head_dim, bias=False)
+
         self.k_rope = paddle.compat.nn.Linear(hidden_size, self.qk_rope_head_dim, bias=False)
         self.kv_proj = nn.Sequential(
             paddle.compat.nn.Linear(hidden_size, self.kv_lora_rank, bias=False),
             RMSNorm(self.kv_lora_rank, dtype=torch.float32),
             paddle.compat.nn.Linear(self.kv_lora_rank, self.num_heads * (self.qk_nope_head_dim + self.v_head_dim), bias=False),
         )
+
         self.o_proj = paddle.compat.nn.Linear(self.num_heads * self.v_head_dim, hidden_size, bias=False)
 
         self.scaling = self.qk_head_dim ** (-0.5)
